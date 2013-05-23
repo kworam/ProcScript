@@ -1,4 +1,4 @@
 ProcScript
 ==========
 
-A framework that adds type checking and synchronous programming support to JavaScript
+A framework that makes it easier to do large-scale development in JavaScript.
