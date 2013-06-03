@@ -46,8 +46,7 @@ JavaScript function with type-checked input and output parameters and  synchrono
 
 * Name:  The unique name of the Proc.
 * Signature:  An object literal that defines the input and output parameters of the Proc.
-* Blocks:  The code of the Proc, specified as an array of one or more JavaScript functions.  
-  ProcScript executes these functions in the order they are listed.
+* Blocks:  The code of the Proc, specified as an array of one or more JavaScript functions.  ProcScript executes these functions in the order they are listed.
   
   
 My First Proc
@@ -118,7 +117,7 @@ Each block function must return one of four possible values.  The return value t
 
 `PS.RETURN`  Return to the caller of this Proc.
 
-`<Proc Instance>`  Run this Proc and pass its results to the next block function. 
+`<Proc Instance>`  Run the Proc Instance and pass its results to the next block function. 
 
 `PS.WAIT_FOR_CALLBACK`  Wait for a callback from a ProcScript-compliant blocking function and pass its results to the next block function.
 
@@ -126,10 +125,10 @@ Each block function must return one of four possible values.  The return value t
 ProcScript Debugging
 ------------------------------------------
 
-Incomplete or confusing error messages are frustrating and waste the valuable development time.  If an exception occurs or 
+Incomplete or confusing error messages are frustrating and waste valuable development time.  If an exception occurs or 
 a developer uses ProcScript incorrectly, the framework makes every effort to provide complete and helpful error messages.  
 
-ProcScript maintains its own call stack for each Proc call chain.  If an unhandled exception occurs in a Proc's block function, 
+ProcScript maintains a Proc call stack for each Proc call chain.  If an unhandled exception occurs in a Proc's block function, 
 ProcScript writes detailed information to the console including the Proc call stack as well as the JavaScript call stack.  
 Here is an example from the ProcScript demonstration app:
 
@@ -145,10 +144,10 @@ Here is an example from the ProcScript demonstration app:
 		at MessagePort.channel.port1.onmessage (http://localhost/auditmaticmgr.ui/ps/app/utility/ps.js:86:13)
 
 	ProcScript Call Stack:
-	 Thread Id: 0, Created: Mon Jun 03 2013 14:27:33 GMT-0500 (Central Daylight Time)
+	 Thread Id: 0, Created: Mon Jun 03 2013 14:52:56 GMT-0500 (Central Daylight Time)
 	 App.initDbProc.createTablesIfNecessary
-	 App.corsTest.isDbPopulated
-	 
+	 App.corsTestProc.isDbPopulated
+		 
 	 
 
 The JavaScript stack trace is listed under the heading `JavaScript Error Object:`. 
@@ -157,6 +156,9 @@ to the associated line in the JavaScript source.
 
 The Proc call stack is listed under the heading `ProcScript Call Stack:`.  
 This call stack contains the chain of Proc Instances that called each other leading up to the exception.  
+Each entry in the Proc call stack is of the form `Proc Name`.`Block Function Name`.  In the example above,
+block function `isDbPopulated` in Proc `App.corsTestProc` called Proc `App.initDbProc`.  The unhandled 
+exception occured in the `createTablesIfNecessary` block function of `App.initDbProc`.
 
 The combination of JavaScript and ProcScript call stacks is very helpful in debugging web applications.
 
