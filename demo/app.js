@@ -1,4 +1,4 @@
-﻿// The code for the ProcScript Demo app
+// The code for the ProcScript Demo app
 var App = (function () {
     "use strict";
 
@@ -13,11 +13,6 @@ var App = (function () {
             return {};
         },
         blocks: [
-        function test() {
-            return new myFirstProc({
-                input1: "Hi Mom!"
-            });
-        },
         function isDbPopulated() {
             // Inside each block function, 'this' refers to the currently running Proc instance.
 
@@ -166,27 +161,3 @@ var App = (function () {
 
     return App;
 } ());
-
-
-
-var myFirstProc = PS.defineProc({
-
-    name: "myFirstProc",
-    fnGetSignature: function () {
-        return {
-            input1: ["string"],
-            output1: [Array, "out"]
-        };
-    },
-    blocks: [
-        function blockFunction1() {
-            console.log(this.input1);
-            return PS.NEXT;
-        },
-        function blockFunction2() {
-            var rv = this._procState.rv;
-            rv.output1 = ["Hello World!"];
-            return PS.NEXT;
-        },
-		]
-});
