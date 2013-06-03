@@ -120,7 +120,7 @@ Each block function must return one of four possible values.  The return value t
 
 `<Proc Instance>`  Run this Proc and pass its results to the next block function. 
 
-`PS.WAIT_FOR_CALLBACK`  Wait for a callback and pass its results to the next block function.
+`PS.WAIT_FOR_CALLBACK`  Wait for a callback from a ProcScript-compliant blocking function and pass its results to the next block function.
 
 
 ProcScript Debugging
@@ -160,6 +160,11 @@ This call stack contains the chain of Proc Instances that called each other lead
 
 The combination of JavaScript and ProcScript call stacks is very helpful in debugging web applications.
 
+
+Code Coverage Statistics
+---------------------------
+
+Documentation of the code coverage statistics that ProcScript keeps and how best to use them is coming soon.
 
 
 A more realistic example
