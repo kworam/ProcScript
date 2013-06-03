@@ -83,7 +83,7 @@ For example, the following example defines a simple Proc called "myFirstProc":
             rv.output1 = [ "Hello World!" ];
             return PS.NEXT;
         },
-  	]
+		]
     });
 
 
@@ -123,10 +123,51 @@ Each block function must return one of four possible values.  The return value t
 `PS.WAIT_FOR_CALLBACK`  Wait for a callback and pass its results to the next block function.
 
 
+ProcScript Debugging
+------------------------------------------
+
+Incomplete or confusing error messages are frustrating and waste the valuable development time.  If an exception occurs or 
+a developer uses ProcScript incorrectly, the framework makes every effort to provide complete and helpful error messages.  
+
+ProcScript maintains its own call stack for each Proc call chain.  If an unhandled exception occurs in a Proc's block function, 
+ProcScript writes detailed information to the console including the Proc call stack as well as the JavaScript call stack.  
+Here is an example from the ProcScript demonstration app:
+
+	[onProcException] index.html:14
+	err=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function index.html:15
+	errorMessage: index.html:17
+	Unhandled exception in App.initDbProc.createTablesIfNecessary
+	Javascript Error object:
+	 Error.message=[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
+	 Error.stack=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
+		at createTablesIfNecessary (http://localhost/auditmaticmgr.ui/ps/app.js:125:19)
+		at procDispatch (http://localhost/auditmaticmgr.ui/ps/app/utility/ps.js:1043:27)
+		at MessagePort.channel.port1.onmessage (http://localhost/auditmaticmgr.ui/ps/app/utility/ps.js:86:13)
+
+	ProcScript Call Stack:
+	 Thread Id: 0, Created: Mon Jun 03 2013 14:27:33 GMT-0500 (Central Daylight Time)
+	 App.initDbProc.createTablesIfNecessary
+	 App.corsTest.isDbPopulated
+	 
+	 
+
+The JavaScript stack trace is listed under the heading `JavaScript Error Object:`. 
+The debugging tools in many browsers allow you to click on any line in the JavaScript stack trace to go straight 
+to the associated line in the JavaScript source.
+
+The Proc call stack is listed under the heading `ProcScript Call Stack:`.  
+This call stack contains the chain of Proc Instances that called each other leading up to the exception.  
+
+The combination of JavaScript and ProcScript call stacks is very helpful in debugging web applications.
+
+
+
 A more realistic example
 ------------------------------
 
-For a more realistic example of how to use ProcScript, see the ProcScript demonstration app.
+For a more realistic example of how to use ProcScript, see the ProcScript demonstration app.  You can find it 
+in the *demo* folder in this repository.  The source code is brief and heavily commented.  Reading and running
+this example is a great way to quickly learn ProcScript.  
 
 
 
