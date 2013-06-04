@@ -8,6 +8,11 @@ var WebSQLManager = (function () {
 
     // Gets a reference to the WebSQL database
     WebSQLManager.getDb = function () {
+        if (typeof openDatabase === "undefined") {
+            // WebSQL not available
+            return null;
+        }
+
         if (!WebSQLManager.db) {
             var size = 5 * 1024 * 1024;
             WebSQLManager.db = openDatabase('ProcScriptDemo.db', '1.0', 'ProcScript Demo Database', size);

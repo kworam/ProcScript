@@ -130,7 +130,20 @@
         if (!proc) {
             return;
         }
-        proc._successCallback.call(proc, rv);
+
+        var ps = proc._procState,
+            currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
+
+        if (ps._waitForCallback) {
+            ps._waitForCallback = false;
+            proc._successCallback.call(proc, rv);
+
+        } else {
+            throw new Error("[PS.callProcSuccessCallback] Proc '" + proc._getProcName() + "' " +
+                "received an unexpected success callback while executing block '" + currentBlock.name + "'!\n" +
+                "Block functions must return PS.WAIT_FOR_CALLBACK before calling back.\n" +
+                "Also, Procs can only callback once after returning PS.WAIT_FOR_CALLBACK.");
+        }
     }
 
     PS.callProcFailureCallback = function (proc, err) {
@@ -141,7 +154,16 @@
         var ps = proc._procState,
             currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
 
-        proc._failureCallback.call(proc, err, currentBlock.name, true);
+        if (ps._waitForCallback) {
+            ps._waitForCallback = false;
+            proc._failureCallback.call(proc, err, currentBlock.name, true);
+
+        } else {
+            throw new Error("[PS.callProcFailureCallback] Proc '" + proc._getProcName() + "' " +
+                "received an unexpected failure callback while executing block '" + currentBlock.name + "'!\n" +
+                "Block functions must return PS.WAIT_FOR_CALLBACK before calling back.\n" +
+                "Also, Procs can only callback once after returning PS.WAIT_FOR_CALLBACK.");
+        }
     }
 
     // Use unusual numbers for these reserved block function return values.
@@ -204,7 +226,8 @@
             console.log(err.stack);
             throw err;
         }
-        name = name.trim();
+        // trim whitespace from name
+        name = name.replace(/^\s+|\s+$/g, "");
         if (!name || !name.length) {
             var err = new Error("[PS.defineProc] the 'name' property cannot be empty.");
             console.log(err.stack);
@@ -334,6 +357,13 @@
 
         ps.thread = null;
         ps._traceDispatchUniqueId = null;
+
+        // Validate the paramObj of this instance against the signature
+        if (this.constructor !== PS.Proc) {
+            // If we are constructing a subclass of PS.Proc, not PS.Proc itself,
+            // then we should validate the paramObj against the signature.
+            this._validateParamObj(true);
+        }
     },
 
     Proc.prototype.callStackToString = function () {
@@ -754,8 +784,7 @@
     Proc.prototype._initProcInstance = function () {
         // Initialize the Proc instance so it is ready to run
 
-        var procName = this._getProcName(),
-            ps = this._procState,
+        var ps = this._procState,
             paramObj = this._getParamObj(),
             caller = this._getCaller();
 
@@ -772,7 +801,7 @@
         ps.currentBlockIdx = 0;
 
         // Validate the paramObj of this instance against the signature
-        this._validateParamObj(true);
+        //this._validateParamObj(true);
 
         if (!caller || !caller._procState.thread) {
             // create a new thread for this Proc
@@ -810,7 +839,7 @@
                 var procCaller = ps._caller,
                     callerCurrentBlock = procCaller._getProcBlocks()[procCaller._procState.currentBlockIdx];
 
-                callerName = "[" + procCaller._getProcName() + "].[" + callerCurrentBlock.name + "]";
+                callerName = procCaller._getProcName() + "." + callerCurrentBlock.name;
             }
         }
 
@@ -927,13 +956,13 @@
                 // paramType indicates paramValue should be an instanceof the function paramType
 
                 typeMisMatch = true;
-                expectedParamTypeStr = PS._parseFunctionName(paramType);
+                expectedParamTypeStr = PS._parseFunctionName(paramType) || "<anonymous function>";
 
                 if (typeof paramValue === 'function') {
-                    actualParamTypeStr = PS._parseFunctionName(paramValue);
+                    actualParamTypeStr = PS._parseFunctionName(paramValue) || "<anonymous function>";
 
                 } else if (typeof paramValue === 'object' && typeof paramValue.constructor === 'function') {
-                    actualParamTypeStr = PS._parseFunctionName(paramValue.constructor);
+                    actualParamTypeStr = PS._parseFunctionName(paramValue.constructor) || "<anonymous function>";
 
                 } else {
                     actualParamTypeStr = typeof paramValue;
@@ -987,8 +1016,10 @@
             this._successCallback();
 
         } else if (blockReturnValue == PS.WAIT_FOR_CALLBACK) {
-            // do nothing, block function has already called a function that will 
-            // callback to this Proc's success or failure callback when it completes
+            // The block function has signalled that it has already called a function
+            // that will callback to this Proc's success or failure callback when it completes.
+            // Set the Proc's _waitForCallback flag.
+            ps._waitForCallback = true;
 
         } else if (blockReturnValue instanceof PS.Proc) {
             var proc = blockReturnValue,
@@ -1328,7 +1359,7 @@
         var s = '',
             arr = this._callStack.toArray();
 
-        s += (' Thread Id: ' + this._uniqueId + ', Created: ' + this._createDate + '\n');
+        s += (' Thread Id: ' + this._uniqueId + ', Created: ' + this._createDate + '\n\n');
         for (var i = 0, len = arr.length; i < len; i++) {
             var stackFrame = arr[i];
             s += (" " + stackFrame + "\n");

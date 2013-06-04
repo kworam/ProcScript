@@ -5,9 +5,9 @@ var App = (function () {
     var App = {};
 
     // This Proc sends a CORS request to a user-specified URL.
-    App.corsTest = PS.defineProc({
+    App.corsTestProc = PS.defineProc({
 
-        name: "App.corsTest",
+        name: "App.corsTestProc",
         fnGetSignature: function () {
             // This Proc has no input or output parameters.
             return {};
@@ -60,9 +60,12 @@ var App = (function () {
                 "'" + this.resultMsg.replace(/'/g, "''") + "'" +
                 ")";
 
-            // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
-            WebSQLManager.executeSQL(this, cmd);
-            return PS.WAIT_FOR_CALLBACK;
+            if (WebSQLManager.getDb()) {
+                // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
+                WebSQLManager.executeSQL(this, cmd);
+                return PS.WAIT_FOR_CALLBACK;
+            }
+            return PS.NEXT;
         },
         function _catch(err) {
             // The _catch block function runs:
@@ -79,8 +82,11 @@ var App = (function () {
                 "'" + this.resultMsg.replace(/'/g, "''") + "'" +
                 ")";
 
-            WebSQLManager.executeSQL(this, cmd);
-            return PS.WAIT_FOR_CALLBACK;
+            if (WebSQLManager.getDb()) {
+                WebSQLManager.executeSQL(this, cmd);
+                return PS.WAIT_FOR_CALLBACK;
+            }
+            return PS.NEXT;
         },
         function _finally() {
             // The _finally block function always runs, exception or not.
@@ -108,6 +114,22 @@ var App = (function () {
             };
         },
         blocks: [
+        function checkWebSQL() {
+            // rv refers to the return value of this Proc Instance.
+            var rv = this._procState.rv;
+
+            // initialize the output parameter to false
+            rv.tablesCreated = false;
+
+            if (!WebSQLManager.getDb()) {
+                // WebSQL is not available
+
+                // When a Proc instance returns PS.RETURN,
+                // ProcScript executes the _finally block function (if any) and returns to the Proc's caller.
+                return PS.RETURN;
+            }
+            return PS.NEXT;
+        },
         function checkTableExists() {
             // Check whether 'testTableName' exists in the WebSQL database.
             var strQuery = "SELECT NAME FROM sqlite_master WHERE type='table' and name = '" + this.testTableName + "'";
@@ -126,11 +148,6 @@ var App = (function () {
 
             if (resultSet && resultSet.rows && resultSet.rows.length) {
                 // The test table exists in the WebSQL database.
-                // Set the value of the output parameter and return;
-                rv.tablesCreated = false;
-
-                // When a Proc instance returns PS.RETURN,
-                // ProcScript executes the _finally block function (if any) and returns to the Proc's caller.
                 return PS.RETURN;
             }
 

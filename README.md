@@ -61,11 +61,11 @@ variable (`PS`).  `PS.defineProc()` takes an object literal with properties that
 
 `blocks` defines the code of the Proc as an array of functions.
 
-For example, the following example defines a simple Proc called "myFirstProc":
+For example, the following example defines a simple Proc called "MyFirstProc":
 
-    var myFirstProc = PS.defineProc({
+    var MyFirstProc = PS.defineProc({
 
-        name: "myFirstProc",
+        name: "MyFirstProc",
         fnGetSignature: function () {
             return {
                 input1: ["string"],
@@ -86,21 +86,21 @@ For example, the following example defines a simple Proc called "myFirstProc":
     });
 
 
-The Proc named *myFirstProc* takes one string input (`input1`) and produces one Array output (`output1`).  
+The Proc named *MyFirstProc* takes one string input (`input1`) and produces one Array output (`output1`).  
 It has two blocks of code: the first block writes the value of the `input1` to the console 
 and the second block sets the value of `output1` to "Hello World!".
 
 
-The call to `PS.defineProc()` registers *myFirstProc* with the ProcScript framework and returns a reference 
+The call to `PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns a reference 
 to its constructor function.  You can use the constructor function to create and run instances of the Proc:
 
-	var procInstance = new myFirstProc({input1: "Hi Mom!"});
+	var procInstance = new MyFirstProc({input1: "Hi Mom!"});
 	procInstance.run();
 
 
 ProcScript enforces the signature
 ------------------------------------
-Notice that the `myFirstProc` constructor function takes an object literal as input.  This object literal is called 
+Notice that the `MyFirstProc` constructor function takes an object literal as input.  This object literal is called 
 the parameter object and it must provide values for each of the Proc's input parameters.  Before running a Proc, 
 ProcScript checks that the parameter object contains a value of the right type for each of the Proc's input parameters.  
 
