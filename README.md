@@ -132,23 +132,23 @@ ProcScript maintains a Proc call stack for each Proc call chain.  If an unhandle
 ProcScript writes detailed information to the console including the Proc call stack as well as the JavaScript call stack.  
 Here is an example from the ProcScript demonstration app:
 
-	[onProcException] index.html:14
-	err=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function index.html:15
-	errorMessage: index.html:17
+	[onProcException] localhost/:14
+	err=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function localhost/:15
+	errorMessage: localhost/:17
 	Unhandled exception in App.initDbProc.createTablesIfNecessary
+
 	Javascript Error object:
 	 Error.message=[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
 	 Error.stack=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
-		at createTablesIfNecessary (http://localhost/auditmaticmgr.ui/ps/app.js:125:19)
-		at procDispatch (http://localhost/auditmaticmgr.ui/ps/app/utility/ps.js:1043:27)
-		at MessagePort.channel.port1.onmessage (http://localhost/auditmaticmgr.ui/ps/app/utility/ps.js:86:13)
+		at createTablesIfNecessary (http://localhost/auditmaticmgr.ui/psDemo/app.js:147:19)
+		at procDispatch (http://localhost/auditmaticmgr.ui/psDemo/app/utility/ps.js:1074:27)
+		at MessagePort.channel.port1.onmessage (http://localhost/auditmaticmgr.ui/psDemo/app/utility/ps.js:86:13)
 
 	ProcScript Call Stack:
-	 Thread Id: 0, Created: Mon Jun 03 2013 14:52:56 GMT-0500 (Central Daylight Time)
+	 Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)
+
 	 App.initDbProc.createTablesIfNecessary
 	 App.corsTestProc.isDbPopulated
-		 
-	 
 
 The JavaScript stack trace is listed under the heading `JavaScript Error Object:`. 
 The debugging tools in many browsers allow you to click on any line in the JavaScript stack trace to go straight 

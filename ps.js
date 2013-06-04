@@ -1099,7 +1099,7 @@
         var errorMessage =
             "Unhandled exception in " + proc._getProcName() + "." + blockName;
 
-        errorMessage += "\n";
+        errorMessage += "\n\n";
         if (typeof err !== "undefined") {
             // There is an exception object
 

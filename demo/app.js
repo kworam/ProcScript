@@ -144,7 +144,7 @@ var App = (function () {
 
             // Uncomment the line below to simulate an exception in this block function.
             // Since this Proc has no '_catch' block function, the Error will bubble up to the caller Proc.
-            //throw new Error("[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function");
+            // throw new Error("[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function");
 
             if (resultSet && resultSet.rows && resultSet.rows.length) {
                 // The test table exists in the WebSQL database.
