@@ -140,9 +140,9 @@ Here is an example from the ProcScript demonstration app:
 	JavaScript Error Object:
 	 Error.message=[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
 	 Error.stack=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
-		at createTablesIfNecessary (http://localhost/auditmaticmgr.ui/psDemo/app.js:147:19)
-		at procDispatch (http://localhost/auditmaticmgr.ui/psDemo/app/utility/ps.js:1074:27)
-		at MessagePort.channel.port1.onmessage (http://localhost/auditmaticmgr.ui/psDemo/app/utility/ps.js:86:13)
+		at createTablesIfNecessary (http://localhost/psDemo/app.js:147:19)
+		at procDispatch (http://localhost/psDemo/app/utility/ps.js:1074:27)
+		at MessagePort.channel.port1.onmessage (http://localhost/psDemo/app/utility/ps.js:86:13)
 
 	Proc Call Stack:
 	 Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)
