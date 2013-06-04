@@ -137,7 +137,7 @@ Here is an example from the ProcScript demonstration app:
 	errorMessage: localhost/:17
 	Unhandled exception in App.initDbProc.createTablesIfNecessary
 
-	Javascript Error object:
+	JavaScript Error Object:
 	 Error.message=[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
 	 Error.stack=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
 		at createTablesIfNecessary (http://localhost/auditmaticmgr.ui/psDemo/app.js:147:19)
@@ -151,10 +151,16 @@ Here is an example from the ProcScript demonstration app:
 	 App.corsTestProc.isDbPopulated
 
 The JavaScript stack trace is listed under the heading `JavaScript Error Object:`. 
+
 The debugging tools in many browsers allow you to click on any line in the JavaScript stack trace to go straight 
 to the associated line in the JavaScript source.
 
-The Proc call stack is listed under the heading `ProcScript Call Stack:`.  
+The Proc call stack is listed under the heading `Proc Call Stack:`.  
+
+Note that the ProcScript call stack starts with `Thread Id: 0 Created ...`.  This is not an operating system thread
+but a *virtual* ProcScript thread.  When a *root* Proc runs, ProcScript allocates a virtual *thread* to it and uses it 
+to maintain the call stack for the *root* Proc and any of its descendant Procs.
+
 This call stack contains the chain of Proc Instances that called each other leading up to the exception.  
 Each entry in the Proc call stack is of the form `Proc Name`.`Block Function Name`.  In the example above,
 block function `isDbPopulated` in Proc `App.corsTestProc` called Proc `App.initDbProc`.  The unhandled 

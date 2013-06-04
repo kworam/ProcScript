@@ -1105,7 +1105,7 @@
 
             if (err instanceof Error) {
                 // The exception object inherits from the javascript Error object
-                errorMessage += "Javascript Error object:\n";
+                errorMessage += "JavaScript Error Object:\n";
                 if (err.message) {
                     errorMessage += " Error.message=" + err.message;
                     errorMessage += "\n";
@@ -1121,7 +1121,7 @@
                 errorMessage += "\n";
             }
 
-            errorMessage += "\nProcScript Call Stack:\n";
+            errorMessage += "\nProc Call Stack:\n";
             errorMessage += proc.callStackToString();
 
         } else {
