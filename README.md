@@ -144,7 +144,7 @@ Here is an example from the ProcScript demonstration app:
 		at procDispatch (http://localhost/auditmaticmgr.ui/psDemo/app/utility/ps.js:1074:27)
 		at MessagePort.channel.port1.onmessage (http://localhost/auditmaticmgr.ui/psDemo/app/utility/ps.js:86:13)
 
-	ProcScript Call Stack:
+	Proc Call Stack:
 	 Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)
 
 	 App.initDbProc.createTablesIfNecessary
@@ -157,7 +157,7 @@ to the associated line in the JavaScript source.
 
 The Proc call stack is listed under the heading `Proc Call Stack:`.  
 
-Note that the ProcScript call stack starts with `Thread Id: 0 Created ...`.  This is not an operating system thread
+Note that the Proc call stack starts with `Thread Id: 0 Created ...`.  This is not an operating system thread
 but a *virtual* ProcScript thread.  When a *root* Proc runs, ProcScript allocates a virtual *thread* to it and uses it 
 to maintain the call stack for the *root* Proc and any of its descendant Procs.
 
