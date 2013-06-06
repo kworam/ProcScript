@@ -110,19 +110,41 @@ The signature object has this structure:
 	}
 	
 `paramType`
+
 The following `paramType` values are allowed:
-	"boolean"   	parameter value must be a JavaScript boolean
-	"number"    	parameter value must be a JavaScript number
-	"string"    	parameter value must be a JavaScript string
-	<constructor>  	parameter value must be an instanceof the <constructor> function
-	null        	parameter value may be any type (no type checking is performed)
+
+*	"boolean"   	
+	parameter value must be a JavaScript boolean
+	
+*	"number"    	
+	parameter value must be a JavaScript number
+	
+*	"string"    	
+	parameter value must be a JavaScript string
+	
+*	*constructor function*				
+	parameter value must be an `instanceof` the constructor function
+	
+*	null        	
+	No type checking is performed, parameter value may be any type
+
 	
 `paramDir`
+
+
 The following `paramDir` values are allowed:
-	"in"       the parameter is input-only.
-	"in-out"   the parameter is received as input and returned as output.
-	"out"      the parameter is output-only.
-	undefined  if no `paramDir` is specified, it defaults to "in"
+
+*	"in"       
+	the parameter is input-only.
+	
+*	"in-out"   
+	the parameter is received as input and returned as output.
+	
+*	"out"      
+	the parameter is output-only.
+	
+*	undefined  
+	if no `paramDir` is specified, it defaults to "in"
 
 
 
@@ -190,14 +212,19 @@ Block function return values
 
 Every block function must return one of the following four values.  The block function's return value tells ProcScript what to do next:
 
-`PS.NEXT`  Run the next block function.
+*	`PS.NEXT`       
+	Run the next block function.
+	
+*	`PS.RETURN`   
+	Return to the caller of this Proc.
+	
+*	*a Proc Instance*      
+	Run the returned Proc Instance and pass its results to the next block function.
+	
+*	`PS.WAIT_FOR_CALLBACK`  
+	Wait for a callback from a ProcScript-compliant blocking function and pass its results to the next block function.  More on this later...
 
-`PS.RETURN`  Return to the caller of this Proc.
-
-`<a Proc Instance>`  Run the returned Proc Instance and pass its results to the next block function. 
-
-`PS.WAIT_FOR_CALLBACK`  Wait for a callback from a ProcScript-compliant blocking function and pass its results to the next block function.  A ProcScript-compliant blocking function calls `PS.callProcSuccessCallback` or `PS.callProcFailureCallback` when it completes.
-
+	
 If a block function returns anything other than one of these four values, ProcScript throws an error.
 
 
