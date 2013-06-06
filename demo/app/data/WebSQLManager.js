@@ -25,17 +25,28 @@ var WebSQLManager = (function () {
     };
 
     // Execute preparedStmt using paramArray.
+
+    // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
+    // This means that when it completes, 
+    // WebSQLManager.executeSQL calls the success or failure callback of its caller Proc as appropriate.
+
     WebSQLManager.executeSQL = function (proc, preparedStmt, paramArray) {
         WebSQLManager.getDb().transaction(
             function (tx) {
                 tx.executeSql(preparedStmt, paramArray,
                     function executeSqlSuccess(tx, results) {
+
+                        // Tell the waiting Proc that the blocking operation succeeded 
+                        // and pass an object containing the results of the operation.
                         PS.callProcSuccessCallback(proc, results);
                     },
                     function executeSqlFailure(tx, err) {
                         var procErrorMessage = "[WebSQLManager.executeSQL.executeSqlFailure]\n" +
                             "error: " + err.message + "\n" +
                             "preparedStmt: " + preparedStmt;
+
+                        // Tell the waiting Proc that the blocking operation failed 
+                        // and pass a descriptive error message.
                         PS.callProcFailureCallback(proc, procErrorMessage);
                     });
 
@@ -43,6 +54,9 @@ var WebSQLManager = (function () {
                 var procErrorMessage = "[WebSQLManager.executeSQL.transactionFailure]\n" +
                     "error: " + err.message + "\n" +
                     "preparedStmt: " + preparedStmt;
+
+                // Tell the waiting Proc that the blocking operation failed 
+                // and pass a descriptive error message.
                 PS.callProcFailureCallback(proc, procErrorMessage);
             });
 

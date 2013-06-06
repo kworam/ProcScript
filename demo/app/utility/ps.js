@@ -251,7 +251,9 @@
         }
         c.blocks = blocks;
 
-
+        if (fnGetForEachArray && fnWhileTest) {
+            throw new Error("[PS.defineProc] Proc '" + name + "' can specify 'fnGetForEachArray' or 'fnWhileTest' but not both.");
+        }
 
         if (fnGetForEachArray) {
             if (typeof fnGetForEachArray !== "function") {
@@ -346,7 +348,7 @@
         // Could provide support for var args in the future...
         ps.ctorArgs = arguments;
 
-        ps.paramObj = paramObj;
+        ps.paramObj = ps.rv = paramObj;
 
         if (paramObj._procCaller) {
             // If the caller of this Proc passed an explicit _procCaller parameter in paramObj,
@@ -366,6 +368,30 @@
         }
     },
 
+    Proc.prototype.getParamValue = function (paramName) {
+        var paramObj = this._getParamObj(),
+            signatureObj = this._getSignatureObj(),
+            paramDescriptor = signatureObj[paramName];
+
+        if (typeof paramDescriptor === "undefined") {
+            throw new Error("[PS.Proc.getParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
+        }
+
+        return paramObj[paramName];
+    };
+
+    Proc.prototype.setParamValue = function (paramName, val) {
+        var paramObj = this._getParamObj(),
+            signatureObj = this._getSignatureObj(),
+            paramDescriptor = signatureObj[paramName];
+
+        if (typeof paramDescriptor === "undefined") {
+            throw new Error("[PS.Proc.setParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
+        }
+
+        paramObj[paramName] = val;
+    };
+
     Proc.prototype.callStackToString = function () {
         var ps = this._procState;
 
@@ -382,7 +408,7 @@
             var forEachIndex = ps.loop_index;
             if (forEachIndex >= forEachArray.length) {
                 throw new Error("[PS.Proc.getCurrentForEachItem] current index out of range: index=" +
-                forEachIndex + ",  arrayLength= " + forEachArray.length + ".");
+                    forEachIndex + ",  arrayLength= " + forEachArray.length + ".");
             }
             return forEachArray[forEachIndex];
 
@@ -581,34 +607,45 @@
                 if (callSuccess) {
                     rv = this._procState.rv;
 
-                    var signatureObj = this._getSignatureObj();
-                    if (signatureObj) {
-                        // this is the new Proc format
-                        var po = this._getParamObj();
+                    // copy all properties in _procState.rv that correspond to 
+                    // 'in-out' or 'out' parameters to paramObj.
+                    var signatureObj = this._getSignatureObj(),
+                        po = this._getParamObj(),
+                        numOutParams = 0;
 
-                        // copy all properties in _procState.rv that correspond to 
-                        // 'in-out' or 'out' parameters to paramObj.
-                        var numOutParams = 0;
-                        for (var rvParamName in signatureObj) {
-                            var paramDescriptor = signatureObj[rvParamName];
+                    for (var rvParamName in signatureObj) {
+                        var paramDescriptor = signatureObj[rvParamName],
+                            paramDir = 'in';
 
-                            var paramDir = 'in';
-                            if (paramDescriptor) {
-                                paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
-                                paramDir = paramDir.toLowerCase();
-                            }
-
-                            if (paramDir != 'in') {
-                                numOutParams++;
-                                po[rvParamName] = rv[rvParamName];
-                            }
+                        if (paramDescriptor) {
+                            paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
+                            paramDir = paramDir.toLowerCase();
                         }
 
-                        if (numOutParams > 0) {
-                            // The signature has 1 or more 'in-out' or 'out' parameters,
-                            // so validate those parameters against the signature
-                            this._validateParamObj(false);
+                        if (paramDir != 'in') {
+                            numOutParams++;
+                            if (paramDir == 'in-out') {
+                                // I have changed all current 'in-out' parameters to exist only as Proc locals
+                                outputValue = this[rvParamName];
+
+                            } else {
+                                // There are still many 'out' variables that have not been converted to Proc locals
+                                var outputValue = rv[rvParamName];
+                                if (typeof outputValue === "undefined") {
+                                    // If there is no value for the 'out' parameter in rv,
+                                    // then get it from a Proc local of the same name
+                                    outputValue = this[rvParamName];
+                                }
+                            }
+
+                            po[rvParamName] = outputValue;
                         }
+                    }
+
+                    if (numOutParams > 0) {
+                        // The signature has 1 or more 'in-out' or 'out' parameters,
+                        // so validate those parameters against the signature
+                        this._validateParamObj(false);
                     }
 
                     PS._dispatch(caller._successCallback, caller, rv, this, currentBlock.name, false);
@@ -789,12 +826,12 @@
             caller = this._getCaller();
 
         // initialize this Proc's _procState.rv to the empty object
-        if (paramObj) {
-            this._procState.rv = paramObj;
+        //        if (paramObj) {
+        //            this._procState.rv = paramObj;
 
-        } else {
-            this._procState.rv = {};
-        }
+        //        } else {
+        //            this._procState.rv = {};
+        //        }
 
         ps._traceDispatchUniqueId = PS._traceDispatchUniqueIdCounter++;
 
@@ -956,13 +993,13 @@
                 // paramType indicates paramValue should be an instanceof the function paramType
 
                 typeMisMatch = true;
-                expectedParamTypeStr = PS._parseFunctionName(paramType) || "<anonymous function>";
+                expectedParamTypeStr = PS._parseFunctionName2(paramType);
 
                 if (typeof paramValue === 'function') {
-                    actualParamTypeStr = PS._parseFunctionName(paramValue) || "<anonymous function>";
+                    actualParamTypeStr = PS._parseFunctionName2(paramValue);
 
                 } else if (typeof paramValue === 'object' && typeof paramValue.constructor === 'function') {
-                    actualParamTypeStr = PS._parseFunctionName(paramValue.constructor) || "<anonymous function>";
+                    actualParamTypeStr = PS._parseFunctionName2(paramValue.constructor);
 
                 } else {
                     actualParamTypeStr = typeof paramValue;
@@ -1001,6 +1038,14 @@
     PS._parseFunctionName = function (f) {
         // Find zero or more non-paren chars after the function start
         return /function ([^(]*)/.exec(f + "")[1];
+    }
+
+    PS._parseFunctionName2 = function (f) {
+        // If this is an anonymous function, return the first 256 chars of the function body
+        var fname = PS._parseFunctionName(f);
+        if (!fname) {
+            return f.toString().substring(256);
+        }
     }
 
     Proc.prototype._processBlockReturnValue = function (blockReturnValue) {

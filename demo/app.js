@@ -69,8 +69,8 @@ var App = (function () {
         },
         function _catch(err) {
             // The _catch block function runs:
-            // If an exception happens in this Proc, or
-            // If an unhandled exception in a callee Proc bubbles up to this Proc.
+            // If an unhandled exception occurs in a block function of this Proc or
+            // If an unhandled exception in a descendant Proc bubbles up to this Proc.
 
             // Store the result message in a Proc local.
             this.resultMsg =
@@ -89,7 +89,7 @@ var App = (function () {
             return PS.NEXT;
         },
         function _finally() {
-            // The _finally block function always runs, exception or not.
+            // The _finally block function always runs, whether or not an unhandled exception occurs.
 
             // Hide the spinner and display the result message.
             this.spinner.style.display = "none";
@@ -115,11 +115,9 @@ var App = (function () {
         },
         blocks: [
         function checkWebSQL() {
-            // rv refers to the return value of this Proc Instance.
-            var rv = this._procState.rv;
-
-            // initialize the output parameter to false
-            rv.tablesCreated = false;
+            // The following statement creates a Proc local named 'tablesCreated' for the output parameter of the same name.
+            // When the Proc returns, ProcScript sets the value of output parameter 'tablesCreated' to the value of this Proc local.
+            this.tablesCreated = false;
 
             if (!WebSQLManager.getDb()) {
                 // WebSQL is not available
@@ -131,7 +129,10 @@ var App = (function () {
             return PS.NEXT;
         },
         function checkTableExists() {
-            // Check whether 'testTableName' exists in the WebSQL database.
+            // This block function checks whether 'testTableName' exists in the WebSQL database.
+
+            // Before running a Proc, ProcScript creates Proc locals for each 'in' and 'in-out' parameter in the signature.
+            // and initializes them to the values that were passed by the caller.
             var strQuery = "SELECT NAME FROM sqlite_master WHERE type='table' and name = '" + this.testTableName + "'";
 
             // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
@@ -139,9 +140,6 @@ var App = (function () {
             return PS.WAIT_FOR_CALLBACK;
         },
         function createTablesIfNecessary(resultSet) {
-            // rv refers to the return value of this Proc Instance.
-            var rv = this._procState.rv;
-
             // Uncomment the line below to simulate an exception in this block function.
             // Since this Proc has no '_catch' block function, the Error will bubble up to the caller Proc.
             // throw new Error("[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function");
@@ -162,10 +160,8 @@ var App = (function () {
             return PS.WAIT_FOR_CALLBACK;
         },
         function finalize(resultSet) {
-            var rv = this._procState.rv;
-
-            // Set the value of 'tablesCreated' output parameter.
-            rv.tablesCreated = true;
+            // Set the value of the 'tablesCreated' output parameter via its Proc local.
+            this.tablesCreated = true;
 
             // When a Proc instance returns PS.NEXT, ProcScript executes the next block function.
             // If the last block function returns PS.NEXT, ProcScript handles it like PS.RETURN.
