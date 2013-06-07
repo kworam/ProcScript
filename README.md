@@ -217,7 +217,7 @@ name, ProcScript auto-names it `block_N` where `N` is the index of the block fun
 
 Inside a block function, `this` refers to the Proc instance that is running.  Properties of the Proc instance are referred to as *Proc locals*.
 
-For example, this block function has set the value of Proc local `x` to the `resultObj` from the previous block function.
+For example, this block function sets the value of Proc local `x` to the `resultObj` from the previous block function.
 
 	function blockFunc (resultObj) {
 		this.x = resultObj;
