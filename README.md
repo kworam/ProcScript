@@ -174,7 +174,7 @@ This works for core JavaScript classes (like Date or Array) but also for user-de
 	}
 
 	Point.prototype.toString = function () {
-		return "[" + this.x + ", " + this.y + "]";
+		return "{" + this.x + "," + this.y + "}";
 	}
 
 
@@ -203,7 +203,7 @@ Running `PointProc` like this:
 
 produces this console output:
 
-	[1, 2]
+	{1,2}
 
 
 
