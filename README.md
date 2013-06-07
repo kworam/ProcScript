@@ -114,19 +114,19 @@ The signature object has this structure:
 The following `paramType` values are allowed:
 
 *	"boolean"   	
-	parameter value must be a JavaScript boolean
+	The parameter value must be a JavaScript boolean.
 	
 *	"number"    	
-	parameter value must be a JavaScript number
+	The parameter value must be a JavaScript number.
 	
 *	"string"    	
-	parameter value must be a JavaScript string
+	The parameter value must be a JavaScript string.
 	
-*	*constructor function*				
-	parameter value must be an `instanceof` the constructor function
+*	*class constructor function*				
+	The parameter value must be an `instanceof` the class.
 	
 *	null        	
-	No type checking is performed, parameter value may be any type
+	No type checking is performed, the parameter value may be any type.
 
 	
 `paramDir`
@@ -135,16 +135,16 @@ The following `paramType` values are allowed:
 The following `paramDir` values are allowed:
 
 *	"in"       
-	the parameter is input-only.
+	The parameter is input-only.
 	
 *	"in-out"   
-	the parameter is received as input and returned as output.
+	The parameter is received as input and returned as output.
 	
 *	"out"      
-	the parameter is output-only.
+	The parameter is output-only.
 	
 *	undefined  
-	if no `paramDir` is specified, it defaults to "in"
+	If no `paramDir` is specified, it defaults to "in".
 
 
 
@@ -159,6 +159,53 @@ If it does not contain a value of the right type for each "in" and "in-out" para
 
 Similarly, before a Proc returns to its caller, ProcScript checks its return object against the signature object. 
 If it does not contain a value of the right type for each "in-out" and "out" parameter in the signature, ProcScript throws an error.
+
+
+ProcScript type checks objects
+--------------------------------------
+
+As mentioned above, if the `paramType` of a parameter is the constructor function for a class, ProcScript checks that the parameter value is an `instanceof` that class.  
+
+This works for core JavaScript classes (like Date or Array) but also for user-defined classes.  For example, if I define a Point class like this:
+
+	function Point(x, y) {
+		this.x = x;
+		this.y = y;
+	}
+
+	Point.prototype.toString = function () {
+		return "[" + this.x + ", " + this.y + "]";
+	}
+
+
+I can write a Proc that inputs or outputs a `Point` object.  For example, this Proc receives a `Point` object as input:
+
+
+	var PointProc = PS.defineProc({
+
+		name: "PointProc",
+		fnGetSignature: function () {
+			return {
+				inPoint: [Point]
+			};
+		},
+		blocks: [
+		function () {
+			console.log(this.inPoint.toString());
+			return PS.NEXT;
+		}
+		]
+	});
+
+Running `PointProc` like this:
+
+	new PointProc({ inPoint: new Point(1, 2) }).run();
+
+produces this console output:
+
+	[1, 2]
+
+
 
 	
 Block functions
@@ -253,7 +300,7 @@ If you need to execute a Proc repeatedly, ProcScript offers two ways to do this:
 ForEach Procs
 ----------------------
 
-If the config object you pass `PS.defineProc` contains an `fnGetForEachArray` property, you define a `ForEach` looping Proc.
+If the config object you pass to `PS.defineProc` contains an `fnGetForEachArray` property, you define a `ForEach` looping Proc.
 Here is an example:
 
     var MyForEachProc = PS.defineProc({
@@ -288,7 +335,7 @@ The block functions of a `ForEach` Proc can use the following support functions:
 WhileTest Procs
 --------------------------
 
-If the config object you pass `PS.defineProc` contains an `fnWhileTest` property, you define a `WhileTest` looping Proc.
+If the config object you pass to `PS.defineProc` contains an `fnWhileTest` property, you define a `WhileTest` looping Proc.
 Here is an example:
 
     var MyWhileTestProc = PS.defineProc({
@@ -359,7 +406,7 @@ Procs can call other Procs
 -----------------------------------
 
 When the return value of a block function is a Proc instance, ProcScript runs that Proc Instance and passes its results to the next block function.  This 
-allows you to chain Procs together and create Proc call stacks just as you could chain regular JavaScript function together into call stacks.
+allows you to chain Procs together and create Proc call stacks just as you could chain regular JavaScript functions together into call stacks.
 Here is a simple example:
 
     var ProcCallsProc = PS.defineProc({
@@ -383,7 +430,7 @@ Here is a simple example:
 		]
     });
 
-If you run it like this:
+If you run `ProcCallsProc` like this:
 	
 	var pi = new ProcCallsProc({})
 	pi.run();
@@ -405,7 +452,7 @@ Proc call stacks
 The first Proc in a call chain is called the root Proc.  When a root Proc runs, 
 ProcScript allocates a virtual *thread* to it and uses it to maintain the call stack for it and any of its descendant Procs.
 
-You can dump the call stack for any Proc in a call chain with this function:
+You can dump the call stack from any Proc in a call chain with this function:
 
 	Proc.callStackToString()
 	
