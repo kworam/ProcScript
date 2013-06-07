@@ -62,6 +62,9 @@
         return this;
     }
 
+    // NOTE: The 'nextTick' code below was borrowed from the Q project
+    // https://github.com/kriskowal/q
+
     // Use the fastest possible means to execute a task in a future turn
     // of the event loop.
     var nextTick;
