@@ -175,15 +175,14 @@
     PS.RETURN = -9007199254740991;
     PS.NEXT = -9007199254740990;
     PS.WAIT_FOR_CALLBACK = -9007199254740989;
+    PS.CONTINUE = -9007199254740988;
+    PS.BREAK = -9007199254740987;
 
     PS.defineProc = function (config) {
 
         if (!config || typeof config !== "object") {
             throw new Error("[PS.defineProc] you must pass a config object to defineProc.");
         }
-
-        // create the constructor function for this Proc
-        var c = new Function("paramObj", "PS.Proc.call(this, paramObj);");
 
         var name = null,
             fnGetSignature = null,
@@ -236,9 +235,14 @@
             console.log(err.stack);
             throw err;
         }
+
+        // create the constructor function for this Proc
+        var c = new Function("paramObj",
+            "if (!(this instanceof PS.Proc)) { throw new Error (\"You must use the 'new' keyword to create an instance of Proc '" + name + "'.\"); }; " +
+            "PS.Proc.call(this, paramObj);"
+            );
+
         c.procName = name;
-
-
 
         if (!fnGetSignature || typeof fnGetSignature !== "function") {
             throw new Error("[PS.defineProc] the config object for Proc '" + name +
@@ -282,6 +286,14 @@
         return c;
     };
 
+    PS.undefineProc = function (procName) {
+        var procRecord = PS.ProcRegistry._procsByName[procName];
+        if (typeof procRecord === "undefined") {
+            throw new Error("[PS.undefineProc] Proc '" + procName + "' not found in the registry!");
+        } 
+
+        delete PS.ProcRegistry._procsByName[procName];
+    }
 
 
     PS._exceptionListeners = [];
@@ -344,8 +356,8 @@
         ps.currentBlockIdx = null;
         ps.failureSourceBlockIdx = -1;
 
-        // If this is a looping Proc ('forEach' or 'whileTest'), then 'loop_index' holds the index of the current loop iteration.
-        ps.loop_index = 0;
+        // If this is a looping Proc ('forEach' or 'whileTest'), then 'loopIndex' holds the index of the current loop iteration.
+        ps.loopIndex = 0;
 
         // Hold onto the arguments passed to this Proc
         // Could provide support for var args in the future...
@@ -401,6 +413,11 @@
         return ps.thread.callStackToString();
     };
 
+    Proc.prototype._isLoopingProc = function () {
+        return this._getForEachArray() || this._getWhileTestFunction();
+    };
+
+
     // for a 'forEach' Proc, returns the current item being processed.
     // else returns NULL
     Proc.prototype.getCurrentForEachItem = function () {
@@ -408,7 +425,7 @@
 
         var forEachArray = this._getForEachArray();
         if (forEachArray) {
-            var forEachIndex = ps.loop_index;
+            var forEachIndex = ps.loopIndex;
             if (forEachIndex >= forEachArray.length) {
                 throw new Error("[PS.Proc.getCurrentForEachItem] current index out of range: index=" +
                     forEachIndex + ",  arrayLength= " + forEachArray.length + ".");
@@ -428,7 +445,7 @@
             fnWhileTest = this._getWhileTestFunction();
 
         if (forEachArray || fnWhileTest) {
-            return ps.loop_index;
+            return ps.loopIndex;
 
         } else {
             return null;
@@ -439,6 +456,8 @@
     Proc.prototype.run = function () {
 
         this._initProcInstance();
+
+        PS.ProcRegistry._recordRun(this);
 
         // emptyFor is TRUE if this is a 'forEach' Proc with an empty array.
         var forEachArray = this._getForEachArray(),
@@ -698,11 +717,11 @@
             // the Proc state machine has completed all normal blocks successfully
             // or it has successfully completed its _catch or _finally bock.
 
-            ps.loop_index++;
+            ps.loopIndex++;
 
             var forEachArray = this._getForEachArray(),
                 fnWhileTest = this._getWhileTestFunction(),
-                forEachContinues = forEachArray && ps.loop_index < forEachArray.length,
+                forEachContinues = forEachArray && ps.loopIndex < forEachArray.length,
                 whileContinues = false;
 
             if (fnWhileTest) {
@@ -1078,6 +1097,31 @@
 
             proc.run();
 
+        } else if (blockReturnValue == PS.BREAK) {
+            if (blockReturnValue == PS.BREAK && !this._isLoopingProc()) {
+                throw new Error(
+                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                    "' returned PS.BREAK from block '" + currentBlock.name + "'" +
+                    " but it is not a looping Proc."
+                );
+            }
+
+            // we handle PS.BREAK from a looping Proc the same as PS.RETURN
+            this._procReturn();
+
+        } else if (blockReturnValue == PS.CONTINUE) {
+            if (!this._isLoopingProc()) {
+                throw new Error(
+                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                    "' returned PS.CONTINUE from block '" + currentBlock.name + "'" +
+                    " but it is not a looping Proc."
+                );
+            }
+
+            // set the current block idx to the final block index and handle the same as PS.NEXT
+            ps.currentBlockIdx = this.constructor.lastNormalBlockIdx;
+            this._successCallback();
+
         } else {
             throw new Error(
             "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
@@ -1327,6 +1371,7 @@
         blocks[0].initial = true;
         blocks[lastNormalBlockIdx].isFinal = true;
 
+        ctor.lastNormalBlockIdx = lastNormalBlockIdx;
 
         // The Proc has passed sanity checking so add it to the Proc registry
         PS.ProcRegistry._addConstructor(ctor);
@@ -1407,7 +1452,7 @@
         var s = '',
             arr = this._callStack.toArray();
 
-        s += (' Thread Id: ' + this._uniqueId + ', Created: ' + this._createDate + '\n\n');
+        s += (' ProcScript Thread Id: ' + this._uniqueId + ', Created: ' + this._createDate + '\n');
         for (var i = 0, len = arr.length; i < len; i++) {
             var stackFrame = arr[i];
             s += (" " + stackFrame + "\n");
@@ -1417,6 +1462,73 @@
     }
 
     PS.ProcRegistry = function () { }
+
+    // create and return a shallow copy of 'obj'
+    PS._shallowCopy = function (obj, recursive) {
+        var copy = {};
+
+        for (var i in obj) {
+            if (recursive && typeof obj[i] === "object") {
+                copy[i] = PS._shallowCopy(obj[i], recursive);
+            } else {
+                copy[i] = obj[i];
+            }
+        }
+
+        return copy;
+    }
+
+    PS.cloneProcRegistry = function () {
+        return PS._shallowCopy(PS.ProcRegistry._procsByName, true);
+    }
+
+    PS.codeCoverageToString = function () {
+        var s = 'ProcScript Code Coverage Report';
+
+        for (var procName in PS.ProcRegistry._procsByName) {
+            var procRecord = PS.ProcRegistry._procsByName[procName],
+                blockRecords = procRecord.blockRecords,
+                procRunCount = procRecord.runCount;
+
+            s += "\n\nProc '" + procName + "', runCount: " + procRunCount;
+            if (procRunCount > 0) {
+                for (var blockName in blockRecords) {
+                    var blockRecord = blockRecords[blockName],
+                        blockReturnValues = blockRecord.blockReturnValues,
+                        blockRunCount = blockRecord.runCount;
+
+                    s += "\n Block '" + blockName + "', runCount: " + blockRunCount;
+                    if (blockRunCount > 0) {
+                        s += "\n  Return Values: ";
+
+                        var rvCount = 0;
+                        for (var rvPropName in blockReturnValues) {
+                            if (rvCount++ > 0) {
+                                s += ", ";
+                            }
+
+                            if (rvPropName === PS.RETURN.toString()) {
+                                s += "PS.RETURN";
+                            }
+                            else if (rvPropName === PS.NEXT.toString()) {
+                                s += "PS.NEXT";
+                            }
+                            else if (rvPropName === PS.WAIT_FOR_CALLBACK.toString()) {
+                                s += "PS.WAIT_FOR_CALLBACK";
+                            }
+                            else {
+                                s += "'" + rvPropName + "'";
+                            }
+                        }
+                    }
+
+                    s += "\n";
+                }
+            }
+        }
+
+        return s;
+    }
 
     PS.ProcRegistry._procsByName = {};
 
@@ -1434,9 +1546,8 @@
             throw new Error("[PS.ProcRegistry._addConstructor] a Proc with name '" + procName + "' is already in the Proc registry'!");
         }
 
-        PS.ProcRegistry._procsByName[procName] = {
-            ctor: ctor
-        };
+        PS.ProcRegistry._procsByName[procName] = new PS.ProcRegistry.ProcRecord(ctor);
+
     }
 
     PS.ProcRegistry._getProcNameFromCtor = function (ctor) {
@@ -1453,6 +1564,16 @@
         return s.substring(0, idx);
     };
 
+    PS.ProcRegistry._recordRun = function (proc, currentBlock, blockReturnValue) {
+        var procRecord = PS.ProcRegistry._procsByName[proc._getProcName()];
+
+        if (!procRecord) {
+            throw new Error("[PS.ProcRegistry._processBlockReturnValue] no record found for Proc '" + proc._getProcName() + "'!");
+        }
+
+        procRecord.runCount++;
+    }
+
     PS.ProcRegistry._processBlockReturnValue = function (proc, currentBlock, blockReturnValue) {
         var procRecord = PS.ProcRegistry._procsByName[proc._getProcName()];
 
@@ -1460,25 +1581,34 @@
             throw new Error("[PS.ProcRegistry._processBlockReturnValue] no record found for Proc '" + proc._getProcName() + "'!");
         }
 
-        if (!procRecord.blocks) {
-            procRecord.blocks = {};
-            var blocks = proc._getProcBlocks();
+        var blockRecord = procRecord.blockRecords[currentBlock.name];
+        blockRecord.runCount++;
 
-            for (var i = 0, len = blocks.length; i < len; i++) {
-                var currentBlock = blocks[i];
-
-                procRecord.blocks[currentBlock.name] = {
-                    runCount: 0,
-                    rvs: {}
-                };
-            }
+        var rvPropName = blockReturnValue;
+        if (blockReturnValue instanceof PS.Proc) {
+            var rvPropName = blockReturnValue._getProcName();
         }
 
-        var blockRecord = procRecord.blocks[currentBlock.name];
-        blockRecord.runCount++;
-        blockRecord.rvs[blockReturnValue] = true;
+        blockRecord.blockReturnValues[rvPropName] = true;
     }
 
+    PS.ProcRegistry.ProcRecord = function (ctor) {
+        //this.procName = ctor.procName;
+        this.runCount = 0;
+        this.blockRecords = {};
+
+        var blocks = ctor.blocks;
+        for (var i = 0, len = blocks.length; i < len; i++) {
+            var b = blocks[i];
+
+            this.blockRecords[b.name] = new PS.ProcRegistry.BlockRecord();
+        }
+    }
+
+    PS.ProcRegistry.BlockRecord = function () {
+        this.runCount = 0;
+        this.blockReturnValues = {};
+    }
 
     // The ProcScript module exposes the 'PS' global object
     return PS;

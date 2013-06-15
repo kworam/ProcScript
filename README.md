@@ -36,7 +36,7 @@ ProcScript features
 * Pure JavaScript: No Compilers or Preprocessors
 * Great for porting C# or Java code to JavaScript
 * Great Debugging Support
-* Maintains Code Coverage Statistics
+* Provides Code Coverage Statistics
 
 
 Procs
@@ -178,7 +178,7 @@ This works for core JavaScript classes (like Date or Array) but also for user-de
 	}
 
 
-I can write a Proc that inputs or outputs a `Point` object.  For example, this Proc receives a `Point` object as input:
+then I can write a Proc that inputs or outputs a `Point` object.  For example, this Proc receives a `Point` object as input:
 
 
 	var PointProc = PS.defineProc({
@@ -375,8 +375,50 @@ The block functions of a `WhileTest` Proc can use the following support function
 Control Flow in looping Procs
 ------------------------------------------
 
-In a looping Proc `PS.RETURN` is equivalent to a `break` statement in a JavaScript loop.  If a block function in a looping Proc
-returns `PS.RETURN`, ProcScript returns to the looping Proc's caller without executing any more iterations of the Proc.
+In a looping Proc, the block function return value `PS.CONTINUE` works like the JavaScript `continue` statement.  ProcScript skips the 
+remaining block functions and begins running the next iteration of the loop.  Likewise, the block function return value `PS.BREAK` works like the 
+JavaScript `break` statement.  It causes ProcScript to immediately return to the looping Proc's caller without executing any more iterations of the 
+Proc.  For example, if you define and run this looping Proc:
+
+
+    var LoopControlsProc = PS.defineProc({
+
+        name: "LoopControlsProc",
+        fnGetSignature: function () {
+            return {
+                input1: ["string"],
+				arr: [Array]
+            };
+        },
+		fnGetForEachArray: function () { return this.arr; },
+        blocks: [
+        function blockFunction1() {
+			this.i = this.getCurrentLoopIterationIndex();
+			if (this.i == 1) {
+				return PS.CONTINUE;
+			} else if (this.i == 3) {
+				return PS.BREAK;
+			}
+            return PS.NEXT;
+        },
+		function blockFunction2 () {
+            console.log(this.input1 + ": i=" + this.i);
+			return PS.NEXT;
+		}
+		]
+    });
+	
+	var p = new LoopControlsProc({input1: "LoopControlsProc", arr: [0,1,2,3,4]});
+	p.run();
+	
+you will get this console output:
+
+	LoopControlsProc: i=0
+	LoopControlsProc: i=2
+
+
+
+If a block function in a non-looping Proc returns `PS.CONTINUE` or `PS.BREAK`, ProcScript throws an error.
 
 If a looping Proc has _catch or _finally block functions, ProcScript behaves as if they are outside the loop, not inside it.
 The equivalent JavaScript code would look like this:
