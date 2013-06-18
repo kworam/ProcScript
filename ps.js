@@ -144,8 +144,8 @@
         } else {
             throw new Error("[PS.callProcSuccessCallback] Proc '" + proc._getProcName() + "' " +
                 "received an unexpected success callback while executing block '" + currentBlock.name + "'!\n" +
-                "Block functions must return PS.WAIT_FOR_CALLBACK before calling back.\n" +
-                "Also, Procs can only callback once after returning PS.WAIT_FOR_CALLBACK.");
+                "The calling Proc must return PS.WAIT_FOR_CALLBACK to ProcScript before the blocking function calls back.\n" +
+                "Also, the blocking function can only callback once to the waiting Proc.");
         }
     }
 
@@ -164,8 +164,8 @@
         } else {
             throw new Error("[PS.callProcFailureCallback] Proc '" + proc._getProcName() + "' " +
                 "received an unexpected failure callback while executing block '" + currentBlock.name + "'!\n" +
-                "Block functions must return PS.WAIT_FOR_CALLBACK before calling back.\n" +
-                "Also, Procs can only callback once after returning PS.WAIT_FOR_CALLBACK.");
+                "The calling Proc must return PS.WAIT_FOR_CALLBACK to ProcScript before the blocking function calls back.\n" +
+                "Also, the blocking function can only callback once to the waiting Proc.");
         }
     }
 
@@ -188,7 +188,9 @@
             fnGetSignature = null,
             blocks = null,
             fnGetForEachArray = null,
-            fnWhileTest = null;
+            fnWhileTest = null,
+            fnDoWhileTest = null,
+            fnForLoop = null;
 
         for (var propName in config) {
             switch (propName) {
@@ -215,6 +217,16 @@
                 case 'fnWhileTest':
                     // set fnWhileTest if present
                     fnWhileTest = config.fnWhileTest;
+                    break;
+
+                case 'fnDoWhileTest':
+                    // set fnDoWhileTest if present
+                    fnDoWhileTest = config.fnDoWhileTest;
+                    break;
+
+                case 'fnForLoop':
+                    // set fnForLoop if present
+                    fnForLoop = config.fnForLoop;
                     break;
 
                 default:
@@ -258,8 +270,24 @@
         }
         c.blocks = blocks;
 
-        if (fnGetForEachArray && fnWhileTest) {
-            throw new Error("[PS.defineProc] Proc '" + name + "' can specify 'fnGetForEachArray' or 'fnWhileTest' but not both.");
+        // look for duplicate loop types
+        var loopTypes = 0;
+        if (fnGetForEachArray) {
+            loopTypes++;
+        }
+        if (fnWhileTest) {
+            loopTypes++;
+        }
+        if (fnForLoop) {
+            loopTypes++;
+        }
+        if (fnDoWhileTest) {
+            loopTypes++;
+        }
+
+        if (loopTypes > 1) {
+            throw new Error("[PS.defineProc] Proc '" + name + "' can specify only one of the following: " +
+                "fnGetForEachArray', 'fnWhileTest', 'fnDoWhileTest' or 'fnForLoop'.");
         }
 
         if (fnGetForEachArray) {
@@ -281,6 +309,41 @@
             c.fnWhileTest = fnWhileTest;
         }
 
+        if (fnDoWhileTest) {
+            if (typeof fnDoWhileTest !== "function") {
+                throw new Error("[PS.defineProc] the 'fnDoWhileTest' property for Proc '" + name +
+                    "' must be a function that returns TRUE if the while loop should continue.");
+            }
+
+            c.fnDoWhileTest = fnDoWhileTest;
+        }
+
+
+        if (fnForLoop) {
+            if (typeof fnForLoop !== "function" || typeof fnForLoop.call() !== "object") {
+                throw new Error("[PS.defineProc] the 'fnForLoop' property for Proc '" + name +
+                    "' must be a function that returns a For loop descriptor object.");
+            }
+
+            c.fnForLoop = fnForLoop;
+
+            var forLoopDescriptor = fnForLoop.call();
+            c.fnForLoopInit = forLoopDescriptor.init;
+            c.fnBeforeIteration = forLoopDescriptor.beforeIteration;
+            c.fnAfterIteration = forLoopDescriptor.afterIteration;
+
+            if (typeof c.fnForLoopInit !== "function") {
+                throw new Error("[PS.defineProc] no 'init' function found for For loop Proc '" + name + "'.");
+            }
+            if (typeof c.fnBeforeIteration !== "function") {
+                throw new Error("[PS.defineProc] no 'beforeIteration' function found for For loop Proc '" + name + "'.");
+            }
+            if (typeof c.fnAfterIteration !== "function") {
+                throw new Error("[PS.defineProc] no 'afterIteration' function found for For loop Proc '" + name + "'.");
+            }
+        }
+
+
         PS._registerProc(c);
 
         return c;
@@ -290,7 +353,7 @@
         var procRecord = PS.ProcRegistry._procsByName[procName];
         if (typeof procRecord === "undefined") {
             throw new Error("[PS.undefineProc] Proc '" + procName + "' not found in the registry!");
-        } 
+        }
 
         delete PS.ProcRegistry._procsByName[procName];
     }
@@ -413,11 +476,6 @@
         return ps.thread.callStackToString();
     };
 
-    Proc.prototype._isLoopingProc = function () {
-        return this._getForEachArray() || this._getWhileTestFunction();
-    };
-
-
     // for a 'forEach' Proc, returns the current item being processed.
     // else returns NULL
     Proc.prototype.getCurrentForEachItem = function () {
@@ -437,20 +495,17 @@
         }
     };
 
-    // for a 'forEach' Proc, returns the index of the current current item being processed.
+    // for a looping Proc, returns the index of the current iteration of the loop
     // else returns NULL
     Proc.prototype.getCurrentLoopIterationIndex = function () {
-        var ps = this._procState,
-            forEachArray = this._getForEachArray(),
-            fnWhileTest = this._getWhileTestFunction();
-
-        if (forEachArray || fnWhileTest) {
-            return ps.loopIndex;
+        if (this._isLoopingProc()) {
+            return this._procState.loopIndex;
 
         } else {
             return null;
         }
     };
+
 
     // start running the Proc
     Proc.prototype.run = function () {
@@ -459,32 +514,129 @@
 
         PS.ProcRegistry._recordRun(this);
 
-        // emptyFor is TRUE if this is a 'forEach' Proc with an empty array.
-        var forEachArray = this._getForEachArray(),
-            emptyFor = forEachArray && !forEachArray.length;
+        var emptyLoop = false;
 
-        // emptyWhile is TRUE if this is a 'whileTest' Proc an the whileTest function initially returns FALSE.
-        var fnWhileTest = this._getWhileTestFunction(),
-            whileTestResult = false;
-
-        if (fnWhileTest) {
-            whileTestResult = fnWhileTest.call(this);
-            if (typeof whileTestResult !== "boolean") {
-                throw new Error("[PS.Proc._getSignatureObj]  Proc '" + this._getProcName() +
-                        "' has a fnWhileTest function that does not return a boolean result!");
-            }
-        }
-
-        var emptyWhile = fnWhileTest && !whileTestResult;
-
-        if (emptyFor || emptyWhile) {
-            // For an empty while or for loop, we skip running the Proc and assume it succeeded.
+        if (this._isEmptyLoop()) {
+            // For an empty looping Proc, we skip running the Proc and assume it succeeded.
             this._procReturn(true, true);
 
         } else {
             this._runCurrentBlock(null, null);
         }
     };
+
+    Proc.prototype._isLoopingProc = function () {
+        return this._getForEachArray() || this._getWhileTestFunction() || this._getForLoopInit() || this._getDoWhileTestFunction();
+    };
+
+
+    Proc.prototype._isEmptyLoop = function () {
+
+        // Check for empty 'ForEach' looping Proc
+        var forEachArray = this._getForEachArray();
+        if (forEachArray) {
+            var emptyForEach = !forEachArray.length;
+            if (emptyForEach) {
+                return true;
+            }
+        }
+
+        // Check for empty 'While' looping Proc.
+        var fnWhileTest = this._getWhileTestFunction();
+        if (fnWhileTest) {
+            var whileTestResult = fnWhileTest.call(this);
+            if (typeof whileTestResult !== "boolean") {
+                throw new Error("[PS.Proc.run]  Proc '" + this._getProcName() +
+                    "' has a fnWhileTest function that does not return a boolean result!");
+            }
+
+            var emptyWhile = !whileTestResult;
+            if (emptyWhile) {
+                return true;
+            }
+        }
+
+        // Check for empty 'For' looping Proc
+        var fnForLoopInit = this._getForLoopInit();
+        if (fnForLoopInit) {
+            // emptyFor is TRUE if this is a 'for' looping Proc an the whileTest function initially returns FALSE.
+
+            // first, run the For loop initializer
+            fnForLoopInit.call(this);
+
+            // Then, run the beforeIteration test
+            var forLoopBeforeResult = this._getForLoopBeforeIteration().call(this);
+            if (typeof forLoopBeforeResult !== "boolean") {
+                throw new Error("[PS.Proc.run]  Proc '" + this._getProcName() +
+                    "' has a 'beforeIteration' function that does not return a boolean result!");
+            }
+            var emptyFor = !forLoopBeforeResult;
+
+            if (emptyFor) {
+                return true;
+            }
+        }
+
+        // NOTE: a 'Do While' looping Proc is never empty, it always iterates at least once
+
+        return false;
+    }
+
+
+    Proc.prototype._loopContinues = function (ps) {
+
+        if (!this._isLoopingProc()) {
+            // This is not a looping Proc
+            return false;
+        }
+
+        // This is some kind of looping Proc
+
+        // increment the loop index
+        ps.loopIndex++;
+
+        var forEachArray = this._getForEachArray();
+        if (forEachArray) {
+            var forEachContinues = ps.loopIndex < forEachArray.length;
+            if (!forEachContinues) {
+                return false;
+            }
+        }
+
+        var fnWhileTest = this._getWhileTestFunction();
+        if (fnWhileTest) {
+            // test whether we should continue looping
+            var whileContinues = fnWhileTest.call(this);
+            if (!whileContinues) {
+                return false;
+            }
+        }
+
+        var fnDoWhileTest = this._getDoWhileTestFunction();
+        if (fnDoWhileTest) {
+            // increment the loop index
+            // test whether we should continue looping
+            var doWhileContinues = fnDoWhileTest.call(this);
+            if (!doWhileContinues) {
+                return false;
+            }
+        }
+
+        var fnForAfterIteration = this._getForLoopAfterIteration();
+        if (fnForAfterIteration) {
+            // first, run the For loop after iteration function
+            fnForAfterIteration.call(this);
+
+            // then, run the For loop before iteration function
+            var forContinues = this._getForLoopBeforeIteration().call(this);
+            if (!forContinues) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 
     Proc.prototype._getForEachArrayFunction = function () {
         if (typeof this.constructor.fnGetForEachArray !== "undefined") {
@@ -517,6 +669,39 @@
         return null;
     };
 
+    Proc.prototype._getDoWhileTestFunction = function () {
+        if (typeof this.constructor.fnDoWhileTest !== "undefined") {
+            return this.constructor.fnDoWhileTest;
+        }
+
+        return null;
+    };
+
+
+    Proc.prototype._getForLoopInit = function () {
+        if (typeof this.constructor.fnForLoopInit !== "undefined") {
+            return this.constructor.fnForLoopInit;
+        }
+
+        return null;
+    };
+
+
+    Proc.prototype._getForLoopBeforeIteration = function () {
+        if (typeof this.constructor.fnBeforeIteration !== "undefined") {
+            return this.constructor.fnBeforeIteration;
+        }
+
+        return null;
+    };
+
+    Proc.prototype._getForLoopAfterIteration = function () {
+        if (typeof this.constructor.fnAfterIteration !== "undefined") {
+            return this.constructor.fnAfterIteration;
+        }
+
+        return null;
+    };
 
     Proc.prototype._getCaller = function () {
         var ps = this._procState;
@@ -594,9 +779,7 @@
                     if (ps.failureSourceBlockIdx == finallyIdx || ps.failureSourceBlockIdx == catchIdx) {
                         // the unhandled exception occurred in the _catch or the _finally block, 
                         // so re-throw it to the caller
-
                         callSuccess = false;
-
                     }
 
                     else if (catchIdx === null) {
@@ -609,14 +792,12 @@
                         // this Proc has a catch block function
                         // we have therefore successfully handled (absorbed) the exception
                         // call the success callback of the caller
-
                         callSuccess = true;
                     }
 
                 } else {
                     // the Proc either ran without any unhandled exceptions in the normal block functions,
                     // or an exception occurred in a normal block function but was successfully handled and absorbed.
-
                     callSuccess = true;
                 }
 
@@ -717,21 +898,8 @@
             // the Proc state machine has completed all normal blocks successfully
             // or it has successfully completed its _catch or _finally bock.
 
-            ps.loopIndex++;
-
-            var forEachArray = this._getForEachArray(),
-                fnWhileTest = this._getWhileTestFunction(),
-                forEachContinues = forEachArray && ps.loopIndex < forEachArray.length,
-                whileContinues = false;
-
-            if (fnWhileTest) {
-                // increment the loop index
-                // test whether we should continue looping
-                whileContinues = fnWhileTest.call(this);
-            }
-
-            if (forEachContinues || whileContinues) {
-                // reset the 'forEach' or 'whileTest' Proc and run it again
+            if (this._loopContinues(ps)) {
+                // reset the 'forEach', 'whileTest' or 'for' loop Proc and run it again
 
                 var previousBlock = this._getProcBlocks()[ps.currentBlockIdx];
                 ps.currentBlockIdx = 0;
@@ -847,20 +1015,9 @@
             paramObj = this._getParamObj(),
             caller = this._getCaller();
 
-        // initialize this Proc's _procState.rv to the empty object
-        //        if (paramObj) {
-        //            this._procState.rv = paramObj;
-
-        //        } else {
-        //            this._procState.rv = {};
-        //        }
-
         ps._traceDispatchUniqueId = PS._traceDispatchUniqueIdCounter++;
 
         ps.currentBlockIdx = 0;
-
-        // Validate the paramObj of this instance against the signature
-        //this._validateParamObj(true);
 
         if (!caller || !caller._procState.thread) {
             // create a new thread for this Proc
@@ -1076,10 +1233,54 @@
 
         PS.ProcRegistry._processBlockReturnValue(this, currentBlock, blockReturnValue);
 
+
+        if (currentBlock._finally && (
+            blockReturnValue == PS.RETURN || blockReturnValue == PS.BREAK || blockReturnValue == PS.CONTINUE)) {
+            throw new Error(
+                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                    "' returned PS.RETURN, PS.BREAK or PS.CONTINUE from its _finally block:  this is not allowed."
+                );
+        }
+
+        if (currentBlock._catch) {
+            if (blockReturnValue == PS.BREAK || blockReturnValue == PS.CONTINUE) {
+                throw new Error(
+                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                        "' returned PS.BREAK or PS.CONTINUE from its _catch block:  this is not allowed."
+                    );
+
+            } else if (blockReturnValue == PS.RETURN) {
+                // treat PS.RETURN in a _catch block like PS.NEXT
+                blockReturnValue = PS.NEXT;
+            }
+        }
+
+
+        if (blockReturnValue == PS.BREAK || blockReturnValue == PS.CONTINUE) {
+            if (!this._isLoopingProc()) {
+                throw new Error(
+                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                        "' returned PS.BREAK or PS.CONTINUE from block '" + currentBlock.name + "'" +
+                        " but it is not a looping Proc."
+                    );
+            }
+
+            if (blockReturnValue == PS.BREAK) {
+                // treat PS.BREAK from a looping Proc the same as PS.RETURN
+                blockReturnValue = PS.RETURN;
+            }
+        }
+
+
         if (blockReturnValue == PS.RETURN) {
             this._procReturn();
 
-        } else if (blockReturnValue == PS.NEXT) {
+        } else if (blockReturnValue == PS.NEXT || blockReturnValue == PS.CONTINUE) {
+            if (blockReturnValue == PS.CONTINUE) {
+                // set the current block idx to the final block index and handle the same as PS.NEXT
+                ps.currentBlockIdx = this.constructor.lastNormalBlockIdx;
+            }
+
             this._successCallback();
 
         } else if (blockReturnValue == PS.WAIT_FOR_CALLBACK) {
@@ -1092,35 +1293,9 @@
             var proc = blockReturnValue,
                 ps = proc._procState;
 
-            // set the caller of the returned Proc to this Proc
+            // set the caller of the returned Proc to this Proc and run it
             ps._caller = this;
-
             proc.run();
-
-        } else if (blockReturnValue == PS.BREAK) {
-            if (blockReturnValue == PS.BREAK && !this._isLoopingProc()) {
-                throw new Error(
-                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
-                    "' returned PS.BREAK from block '" + currentBlock.name + "'" +
-                    " but it is not a looping Proc."
-                );
-            }
-
-            // we handle PS.BREAK from a looping Proc the same as PS.RETURN
-            this._procReturn();
-
-        } else if (blockReturnValue == PS.CONTINUE) {
-            if (!this._isLoopingProc()) {
-                throw new Error(
-                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
-                    "' returned PS.CONTINUE from block '" + currentBlock.name + "'" +
-                    " but it is not a looping Proc."
-                );
-            }
-
-            // set the current block idx to the final block index and handle the same as PS.NEXT
-            ps.currentBlockIdx = this.constructor.lastNormalBlockIdx;
-            this._successCallback();
 
         } else {
             throw new Error(
