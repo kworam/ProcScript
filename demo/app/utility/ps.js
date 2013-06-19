@@ -169,6 +169,16 @@
         }
     }
 
+    PS._log = function (s) {
+        if (window.console && console.log) {
+            console.log(s);
+        }
+    }
+
+    PS._trim = function (s) {
+        return s.replace(/^\s+|\s+$/g, "");
+    }
+
     // Use unusual numbers for these reserved block function return values.
     // This minimizes the chance of a user 'accidentally' returning a value from a block function
     // that happens to be a valid reserved value.
@@ -237,14 +247,14 @@
 
         if (typeof name === "undefined" || typeof name !== "string") {
             var err = new Error("[PS.defineProc] the config object must contain a string property called 'name'.");
-            console.log(err.stack);
+            PS._log(err.stack);
             throw err;
         }
         // trim whitespace from name
-        name = name.replace(/^\s+|\s+$/g, "");
+        name = PS._trim(name);
         if (!name || !name.length) {
             var err = new Error("[PS.defineProc] the 'name' property cannot be empty.");
-            console.log(err.stack);
+            PS._log(err.stack);
             throw err;
         }
 
@@ -877,7 +887,7 @@
                     // and there is no caller to pass it to.
 
                     var msg = "Proc '" + this._getProcName() + "', Block '" + failureBlock.name + "':  An unhandled failure occurred.  See console for details.";
-                    //console.log(msg);
+                    PS._log(msg);
                     alert(msg);
                 }
             }
@@ -928,10 +938,10 @@
 
             // notify procException listeners
             if (!PS._fireProcException(err, errorMessage)) {
-                console.log("ProcScript Proc Failure:");
-                console.log("Error: " + err);
+                PS._log("ProcScript Proc Failure:");
+                PS._log("Error: " + err);
 
-                console.log("Error Details: " + errorMessage);
+                PS._log("Error Details: " + errorMessage);
             }
         }
 
@@ -968,7 +978,7 @@
         var ps = this._procState,
             currentBlock = this._getProcBlocks()[ps.currentBlockIdx];
 
-        //console.log("Proc '" + this._getProcName() + "': running block '" + currentBlock.name + "'");
+        //PS._log("Proc '" + this._getProcName() + "': running block '" + currentBlock.name + "'");
 
         if (previousBlock) {
             // log that the previous block function has exited
@@ -1317,10 +1327,10 @@
 
     PS._traceDispatch = function (procKey, blockName, blockExit) {
         //        if (blockExit) {
-        //            console.log("exiting  [" + procKey + "].[" + blockName + "]");
+        //            PS._log("exiting  [" + procKey + "].[" + blockName + "]");
 
         //        } else {
-        //            console.log("running  [" + procKey + "].[" + blockName + "]");
+        //            PS._log("running  [" + procKey + "].[" + blockName + "]");
         //        }
     }
 
