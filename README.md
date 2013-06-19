@@ -295,7 +295,7 @@ _catch and _finally block functions
 -------------------------------------
 
 If you name a block function *_catch*, ProcScript treats it as the catch handler for the Proc.  Likewise, if you name a block 
-function *_finally*, ProcScript treats it as a finally handler for the Proc.  There can be at most one _catch and one _finally block function
+function *_finally*, ProcScript treats it as the finally handler for the Proc.  There can be at most one _catch and one _finally block function
 in a Proc and they must come last in the `blocks` array.
 
 The _catch and _finally block functions perform the same duties for the Proc that `catch` and `finally` statements do for regular JavaScript
@@ -875,14 +875,14 @@ Using code coverage statistics
 --------------------------------
 
 Note that the runCounts in the Proc Registry object reset to zero each time your JavaScript
-application reloads (ie, you refresh the web page hosting it).  To build coverage statistics over time, you should to 
+application reloads (ie, you refresh the web page hosting it).  To build coverage statistics over time, you should 
 accumulate ProcScript runCounts into persistent storage of some kind.
 
-If a ProcRecord has a runCount of zero, it has not run since the JavaScript application loaded.  A 
-ProcRecord with a non-zero runCount, however, could have one or more BlockRecords with a zero runCount.   You should
-take this into account when analyzing the statistics to determine your percent code coverage.
+If a ProcRecord has a runCount of zero, then ProcScript has not run it since the JavaScript application loaded.  If a 
+ProcRecord has a non-zero runCount, however, it could have one or more BlockRecords with a zero runCount.   You should
+remember this when analyzing the statistics to determine your true code coverage.
 
-Finally, bear in mind that the ProcScript code coverage statistics are only valid for the parts of your JavaScript application 
+Finally, bear in mind that these code coverage statistics are only valid for the parts of your JavaScript application 
 that are coded as ProcScript Procs.  They cannot tell you anything about your coverage of non-ProcScript JavaScript.
 
 
