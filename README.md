@@ -900,16 +900,18 @@ PS API
 to all ProcScript functionality as defined below.
 
 
+These functions define, undefine or get a Proc in the ProcScript registry. 
+
 	PS.defineProc(configObject)
 	PS.undefineProc(procName)
 	PS.getProc(procName)
     
-These functions define, undefine or get a Proc in the ProcScript registry. 
+A ProcScript-compliant callback function uses these functions to callback to a waiting Proc instance.
 
 	PS.callProcSuccessCallback(procInstance, resultObj)
 	PS.callProcFailureCallback(procInstance, errorMessage)
 		
-A ProcScript-compliant callback function uses these functions to callback to a waiting Proc instance.
+These are the block function return values supported by ProcScript.
 
 	PS.RETURN
     PS.NEXT
@@ -917,21 +919,20 @@ A ProcScript-compliant callback function uses these functions to callback to a w
     PS.CONTINUE
     PS.BREAK
 
-These are the block function return values supported by ProcScript.
+These functions add or remove ProcScript listeners.
 
     PS.addListener(eventType, callback)
     PS.removeListener(eventType, callback)
 
-These functions add or remove ProcScript listeners.
+This function returns a string dump of all active ProcScript threads.
 
     PS.threadsToString()
 	
-PS.threadsToString() returns a string dump of all active ProcScript threads.
+These functions provide access ProcScript's code coverage statistics.
 
     PS.cloneProcRegistry()
     PS.codeCoverageToString()
 
-These functions provide access ProcScript's code coverage statistics.
 
 
 PS.Proc API
@@ -941,20 +942,20 @@ PS.Proc API
 instances of `PS.Proc` and can access these functions:
 
 	run()
-Run the Proc Instance.
+run() runs the Proc Instance.
 	
 	getCurrentForEachItem()
-For `ForEach` loop Procs, get the current array item being processed.
+For `ForEach` loop Procs, getCurrentForEachItem() gets the current array item being processed.
 
-Returns null if the Proc instance is not a `ForEach` loop Proc.
+getCurrentForEachItem() returns null if the Proc instance is not a `ForEach` loop Proc.
 	
 	getCurrentLoopIterationIndex()
-For loop Procs, returns the zero-based loop iteration count.
+For loop Procs, getCurrentLoopIterationIndex() returns the zero-based loop iteration count.
 
-Returns null if the Proc instance is not a loop Proc.
+getCurrentLoopIterationIndex() returns null if the Proc instance is not a loop Proc.
 
 	callStackToString()
-Returns a string dump of the ProcScript thread for this Proc Instance.
+callStackToString() returns a string dump of the ProcScript thread for this Proc Instance.
 
 	_procState 
 All Proc Instances have a property named `_procState` that is reserved for use 
