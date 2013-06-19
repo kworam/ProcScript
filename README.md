@@ -450,9 +450,11 @@ The `ForEach' example above makes uses of the following loop support functions:
 
 `Proc.getCurrentForEachItem()`			returns the current item in the `ForEach` array.
 
-`Proc.getCurrentLoopIterationIndex()`	returns the current iteration count of the `ForEach` Proc *(zero-based)*.
+`Proc.getCurrentLoopIterationIndex()`	returns the current iteration count of the loop Proc *(zero-based)*.
 	
-These loop support functions can be used in any type of loop Proc.
+`Proc.getCurrentForEachItem()` returns null if called from a Proc that is not a `ForEach` loop proc.  `Proc.getCurrentLoopIterationIndex()`
+returns null if called from a non-loop Proc.
+
 	
 	
 While loops
@@ -887,6 +889,80 @@ that are coded as ProcScript Procs.  They cannot tell you anything about your co
 
 
 
+The ProcScript API
+--------------------------------
+
+Here is a quick summary of the ProcScript API:
+
+PS API
+--------
+`PS` is the object that ProcScript makes available as a JavaScript global.  It provdes access
+to all ProcScript functionality as defined below.
+
+
+	PS.defineProc(configObject)
+	PS.undefineProc(procName)
+	PS.getProc(procName)
+    
+These functions define, undefine or get a Proc in the ProcScript registry. 
+
+	PS.callProcSuccessCallback(procInstance, resultObj)
+	PS.callProcFailureCallback(procInstance, errorMessage)
+		
+A ProcScript-compliant callback function uses these functions to callback to a waiting Proc instance.
+
+	PS.RETURN
+    PS.NEXT
+    PS.WAIT_FOR_CALLBACK
+    PS.CONTINUE
+    PS.BREAK
+
+These are the block function return values supported by ProcScript.
+
+    PS.addListener(eventType, callback)
+    PS.removeListener(eventType, callback)
+
+These functions add or remove ProcScript listeners.
+
+    PS.threadsToString()
+	
+PS.threadsToString() returns a string dump of all active ProcScript threads.
+
+    PS.cloneProcRegistry()
+    PS.codeCoverageToString()
+
+These functions provide access ProcScript's code coverage statistics.
+
+
+PS.Proc API
+-------------
+
+`PS.Proc` is the prototype (base class) for all Proc definitions.  All Proc Instances are 
+instances of `PS.Proc` and can access these functions:
+
+	run()
+Run the Proc Instance.
+	
+	getCurrentForEachItem()
+For `ForEach` loop Procs, get the current array item being processed.
+
+Returns null if the Proc instance is not a `ForEach` loop Proc.
+	
+	getCurrentLoopIterationIndex()
+For loop Procs, returns the zero-based loop iteration count.
+
+Returns null if the Proc instance is not a loop Proc.
+
+	callStackToString()
+Returns a string dump of the ProcScript thread for this Proc Instance.
+
+	_procState 
+All Proc Instances have a property named `_procState` that is reserved for use 
+by ProcScript.  When defining Proc Locals on your Proc Instance, you may use
+any name other than `_procState`.
+		
+		
+		
 	
 A ProcScript Demo 
 ------------------------------
