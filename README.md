@@ -928,7 +928,7 @@ This function returns a string dump of all active ProcScript threads.
 
     PS.threadsToString()
 	
-These functions provide access ProcScript's code coverage statistics.
+These functions provide access to ProcScript's code coverage statistics.
 
     PS.cloneProcRegistry()
     PS.codeCoverageToString()

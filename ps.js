@@ -130,8 +130,8 @@
 
 
     PS.callProcSuccessCallback = function (proc, rv) {
-        if (!proc) {
-            return;
+        if (!(proc instanceof PS.Proc)) {
+            throw new Error("[PS.callProcSuccessCallback] invalid Proc parameter.");
         }
 
         var ps = proc._procState,
@@ -150,8 +150,8 @@
     }
 
     PS.callProcFailureCallback = function (proc, err) {
-        if (!proc) {
-            return;
+        if (!(proc instanceof PS.Proc)) {
+            throw new Error("[PS.callProcFailureCallback] invalid Proc parameter.");
         }
 
         var ps = proc._procState,
@@ -368,6 +368,9 @@
         delete PS.ProcRegistry._procsByName[procName];
     }
 
+    PS.getProc = function (procName) {
+        return PS.ProcRegistry._procsByName[procName];
+    }
 
     PS._exceptionListeners = [];
 
@@ -422,6 +425,9 @@
     var Proc = PS.Proc;
 
     Proc.prototype._ctorInit = function (paramObj) {
+
+        paramObj = paramObj || {};
+
         var ps = this._procState = {};
 
         // These fields hold the unique state of each Proc instance
@@ -483,7 +489,7 @@
     Proc.prototype.callStackToString = function () {
         var ps = this._procState;
 
-        return ps.thread.callStackToString();
+        return ps.thread._callStackToString();
     };
 
     // for a 'forEach' Proc, returns the current item being processed.
@@ -877,7 +883,7 @@
                 }
 
                 // update the Proc call stack to reflect that the current Proc has exited
-                var stackFrame = ps.thread.procExit();
+                ps.thread._procExit();
 
                 if (ps.failureSourceBlockIdx >= 0 && !catchIdx) {
                     var blocks = this._getProcBlocks(),
@@ -1342,7 +1348,7 @@
 
             PS._traceDispatch(procKey, blockName, false);
 
-            proc._procState.thread.blockStart(procKey, blockName);
+            proc._procState.thread._blockStart(procKey, blockName);
 
             PS._nextTick(function procDispatch() {
 
@@ -1364,7 +1370,7 @@
             // The ProcScript runtime is calling the success or failure callback of a caller Proc.
 
             // update the Proc call stack to reflect that the current Proc has exited
-            proc._procState.thread.procExit();
+            proc._procState.thread._procExit();
 
             PS._nextTick(function procDispatch() {
                 f.call(scope, arg)
@@ -1592,7 +1598,7 @@
 
         for (var tid in threads) {
             var thread = threads[tid];
-            s += thread.callStackToString();
+            s += thread._callStackToString();
             s += '\n';
         }
 
@@ -1611,7 +1617,7 @@
         PS._threads[this._uniqueId] = this;
     }
 
-    PS.Thread.prototype.procExit = function () {
+    PS.Thread.prototype._procExit = function () {
         this._callStack.pop();
 
         if (this._callStack.count() == 0) {
@@ -1619,7 +1625,7 @@
         }
     }
 
-    PS.Thread.prototype.blockStart = function (procKey, blockName) {
+    PS.Thread.prototype._blockStart = function (procKey, blockName) {
         var stackFrame = this._callStack.peek();
 
         if (stackFrame && stackFrame.procKey == procKey) {
@@ -1633,7 +1639,7 @@
         }
     }
 
-    PS.Thread.prototype.callStackToString = function () {
+    PS.Thread.prototype._callStackToString = function () {
         var s = '',
             arr = this._callStack.toArray();
 
@@ -1645,8 +1651,6 @@
 
         return s;
     }
-
-    PS.ProcRegistry = function () { }
 
     // create and return a shallow copy of 'obj'
     PS._shallowCopy = function (obj, recursive) {
@@ -1715,6 +1719,9 @@
         return s;
     }
 
+    PS.ProcRegistry = function () {
+    }
+
     PS.ProcRegistry._procsByName = {};
 
     PS.ProcRegistry._addConstructor = function (ctor) {
@@ -1778,7 +1785,6 @@
     }
 
     PS.ProcRegistry.ProcRecord = function (ctor) {
-        //this.procName = ctor.procName;
         this.runCount = 0;
         this.blockRecords = {};
 
