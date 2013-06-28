@@ -81,8 +81,8 @@ For example, the following example defines a simple Proc called "MyFirstProc":
         function blockFunction2() {
             this.output1 = [ "Hello World!" ];
             return PS.NEXT;
-        }
-		]
+        }]
+		
     });
 
 The config object specifies that *MyFirstProc* takes one *string* input (`input1`) and produces one *Array* output (`output1`).  
@@ -193,8 +193,8 @@ then I can write a Proc that inputs or outputs a `Point` object.  For example, t
 		function () {
 			console.log(this.inPoint.toString());
 			return PS.NEXT;
-		}
-		]
+		}]
+		
 	});
 
 Running `PointProc` like this:
@@ -304,8 +304,8 @@ Here is a simple example:
         function blockFunction2(resultObj) {
 			console.log(resultObj.output1[0]);
             return PS.NEXT;
-        }
-		]
+        }]
+		
     });
 
 				
@@ -396,8 +396,8 @@ Here is a simple example using _catch and _finally block functions:
 		function _finally () {
 			console.log("_finally: stop spinner....");
 			return PS.NEXT;
-		}
-		]
+		}]
+		
     });
 
 Note that the block function `doIt` calls the undefined function `undefinedFunction()` which causes a JavaScript error.  If you run 
@@ -455,8 +455,8 @@ Here is an example:
 		function blockFunction1() {
 			console.log(this.arr[this.i]);
 			return PS.NEXT;
-		}
-		]
+		}]
+		
 	});
 
 ProcScript runs the For loop Proc as follows:
@@ -509,8 +509,8 @@ Here is an example:
             console.log(this.getCurrentForEachItem());
             console.log(this.getCurrentLoopIterationIndex());
             return PS.NEXT;
-        }
-		]
+        }]
+		
     });
 
 The `fnGetForEachArray` property of the config object is a function that returns an array.  ProcScript calls this function once, at Proc 
@@ -554,8 +554,8 @@ Here is an example:
 				this.bContinue = false;
 			}
             return PS.NEXT;
-        },
-		]
+        }]
+		
     });
 
 The `fnWhileTest` property of the config object is a function that returns a boolean (true or false) value.  ProcScript calls 
@@ -584,8 +584,8 @@ Here is an example:
 		function blockFunction1() {
 			console.log(this.arr[this.getCurrentLoopIterationIndex()]);
 			return PS.NEXT;
-		}
-		]
+		}]
+		
 	});
 
 
@@ -626,8 +626,8 @@ Proc.  For example, if you define and run this loop Proc:
 		function blockFunction2 () {
             console.log(this.input1 + ": i=" + this.i);
 			return PS.NEXT;
-		}
-		]
+		}]
+		
     });
 	
 	var p = new LoopControlsProc({input1: "LoopControlsProc", arr: [0,1,2,3,4]});
@@ -717,6 +717,7 @@ Here is an example from the ProcScript demo app:
             // Tell ProcScript to wait for a callback from the blocking function above.
             return PS.WAIT_FOR_CALLBACK;
         }]
+		
     });
 
 	
