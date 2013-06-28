@@ -38,11 +38,12 @@ var App = (function () {
             });
         },
         function sendCorsRequest() {
-            // XHR.makeCorsRequest is a ProcScript-compliant blocking function.
-            // This means that when it completes, 
-            // XHR.makeCorsRequest calls the success or failure callback of its caller Proc as appropriate.
-            XHR.makeCorsRequest(this, this.httpMethodValue, this.txtURLValue);
-            return PS.WAIT_FOR_CALLBACK;
+            // XHR.makeCorsRequest_Proc is an Adapter Proc for a blocking XmlHttpRequest
+            // This blocking XmlHttpRequest notifies ProcScript of success or failure via its callbacks.
+            return new XHR.makeCorsRequest_Proc({
+                method: this.httpMethodValue,
+                url: this.txtURLValue
+            });
         },
         function logResult(prevResult) {
             // Uncomment the line below to simulate an exception in this block function.
@@ -61,9 +62,10 @@ var App = (function () {
                 ")";
 
             if (WebSQLManager.getDb()) {
-                // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
-                WebSQLManager.executeSQL(this, cmd);
-                return PS.WAIT_FOR_CALLBACK;
+                // WebSQLManager.executeSQL_Proc is an Adapter Proc for WebSQL
+                return new WebSQLManager.executeSQL_Proc({
+                    sql: cmd
+                });
             }
             return PS.NEXT;
         },
@@ -83,8 +85,9 @@ var App = (function () {
                 ")";
 
             if (WebSQLManager.getDb()) {
-                WebSQLManager.executeSQL(this, cmd);
-                return PS.WAIT_FOR_CALLBACK;
+                return new WebSQLManager.executeSQL_Proc({
+                    sql: cmd
+                });
             }
             return PS.NEXT;
         },
@@ -136,13 +139,16 @@ var App = (function () {
             var strQuery = "SELECT NAME FROM sqlite_master WHERE type='table' and name = '" + this.testTableName + "'";
 
             // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
-            WebSQLManager.executeSQL(this, strQuery);
+            return new WebSQLManager.executeSQL_Proc({
+                sql: strQuery
+            });
             return PS.WAIT_FOR_CALLBACK;
         },
-        function createTablesIfNecessary(resultSet) {
+        function createTablesIfNecessary(resultObj) {
             // Uncomment the line below to simulate an exception in this block function.
             // Since this Proc has no '_catch' block function, the Error will bubble up to the caller Proc.
             // throw new Error("[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function");
+            var resultSet = resultObj.resultSet;
 
             if (resultSet && resultSet.rows && resultSet.rows.length) {
                 // The test table exists in the WebSQL database.

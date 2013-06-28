@@ -129,23 +129,25 @@
     }
 
 
-    PS.callProcSuccessCallback = function (proc, rv) {
+    PS.callProcSuccessCallback = function (proc) {
+        var ps = proc._procState,
+            currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
+
         if (!(proc instanceof PS.Proc)) {
             throw new Error("[PS.callProcSuccessCallback] invalid Proc parameter.");
         }
 
-        var ps = proc._procState,
-            currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
+        if (!proc._isAdapterProc()) {
+            throw new Error("[PS.callProcSuccessCallback] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
+        }
 
-        if (ps._waitForCallback) {
-            ps._waitForCallback = false;
-            proc._successCallback.call(proc, rv);
+        ps._callbackCount += 1;
+        if (ps._callbackCount === 1) {
+            proc._successCallback.call(proc);
 
         } else {
-            throw new Error("[PS.callProcSuccessCallback] Proc '" + proc._getProcName() + "' " +
-                "received an unexpected success callback while executing block '" + currentBlock.name + "'!\n" +
-                "The calling Proc must return PS.WAIT_FOR_CALLBACK to ProcScript before the blocking function calls back.\n" +
-                "Also, the blocking function can only callback once to the waiting Proc.");
+            throw new Error("[PS.callProcSuccessCallback] Adapter Proc '" + proc._getProcName() + "' received an extraneous success callback.\n" +
+                "An Adapter Proc should only receive one callback from its blocking function.");
         }
     }
 
@@ -157,15 +159,17 @@
         var ps = proc._procState,
             currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
 
-        if (ps._waitForCallback) {
-            ps._waitForCallback = false;
+        if (!proc._isAdapterProc()) {
+            throw new Error("[PS.callProcFailureCallback] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
+        }
+
+        ps._callbackCount += 1;
+        if (ps._callbackCount == 1) {
             proc._failureCallback.call(proc, err, currentBlock.name, true);
 
         } else {
-            throw new Error("[PS.callProcFailureCallback] Proc '" + proc._getProcName() + "' " +
-                "received an unexpected failure callback while executing block '" + currentBlock.name + "'!\n" +
-                "The calling Proc must return PS.WAIT_FOR_CALLBACK to ProcScript before the blocking function calls back.\n" +
-                "Also, the blocking function can only callback once to the waiting Proc.");
+            throw new Error("[PS.callProcFailureCallback] Adapter Proc '" + proc._getProcName() + "' received an extraneous failure callback.\n" +
+                "An Adapter Proc should only receive one callback from its blocking function.");
         }
     }
 
@@ -200,7 +204,8 @@
             fnGetForEachArray = null,
             fnWhileTest = null,
             fnDoWhileTest = null,
-            fnForLoop = null;
+            fnForLoop = null,
+            adapter = false;
 
         for (var propName in config) {
             switch (propName) {
@@ -237,6 +242,11 @@
                 case 'fnForLoop':
                     // set fnForLoop if present
                     fnForLoop = config.fnForLoop;
+                    break;
+
+                case 'adapter':
+                    // set adapter if present
+                    adapter = config.adapter;
                     break;
 
                 default:
@@ -353,6 +363,12 @@
             }
         }
 
+        if (typeof adapter !== "boolean") {
+            throw new Error("[PS.defineProc] the 'adapter' property for For Proc '" + name + "' must be true or false.");
+
+        } else {
+            c.adapter = adapter;
+        }
 
         PS._registerProc(c);
 
@@ -444,15 +460,10 @@
 
         ps.paramObj = ps.rv = paramObj;
 
-        if (paramObj._procCaller) {
-            // If the caller of this Proc passed an explicit _procCaller parameter in paramObj,
-            // the set _procCaller as the caller and delete it from paramObj
-            ps._caller = paramObj._procCaller;
-            delete paramObj._procCaller;
-        }
-
         ps.thread = null;
         ps._traceDispatchUniqueId = null;
+
+        ps._callbackCount = 0;
 
         // Validate the paramObj of this instance against the signature
         if (this.constructor !== PS.Proc) {
@@ -545,6 +556,9 @@
         return this._getForEachArray() || this._getWhileTestFunction() || this._getForLoopInit() || this._getDoWhileTestFunction();
     };
 
+    Proc.prototype._isAdapterProc = function () {
+        return this.constructor.adapter;
+    };
 
     Proc.prototype._isEmptyLoop = function () {
 
@@ -866,6 +880,16 @@
                         // so validate those parameters against the signature
                         this._validateParamObj(false);
                     }
+
+//                    if (caller._isAdapterProc()) {
+//                        // The caller of this Proc is an Adapter Proc so stash this Proc's paramObj on the Adapter Proc
+//                        var adapterPS = caller._procState;
+//                        adapterPS._passThruParamObj = ps.paramObj;
+
+//                    } else if (ps._passThruParamObj) {
+//                        // When an Adapter Proc calls a Proc, it passes the return object of the callee Proc through to its caller
+//                        rv = ps._passThruParamObj;
+//                    }
 
                     PS._dispatch(caller._successCallback, caller, rv, this, currentBlock.name, false);
 
@@ -1241,6 +1265,7 @@
         if (!fname) {
             return f.toString().substring(256);
         }
+        return fname;
     }
 
     Proc.prototype._processBlockReturnValue = function (blockReturnValue) {
@@ -1299,12 +1324,6 @@
 
             this._successCallback();
 
-        } else if (blockReturnValue == PS.WAIT_FOR_CALLBACK) {
-            // The block function has signalled that it has already called a function
-            // that will callback to this Proc's success or failure callback when it completes.
-            // Set the Proc's _waitForCallback flag.
-            ps._waitForCallback = true;
-
         } else if (blockReturnValue instanceof PS.Proc) {
             var proc = blockReturnValue,
                 ps = proc._procState;
@@ -1312,6 +1331,20 @@
             // set the caller of the returned Proc to this Proc and run it
             ps._caller = this;
             proc.run();
+
+        } else if (blockReturnValue == PS.WAIT_FOR_CALLBACK) {
+            // PS.WAIT_FOR_CALLBACK should only be returned by an Adapter Proc
+            // The block function is signalling to ProcScript that it has called a blocking function
+            // that will callback to this Adapter Proc's success or failure callback when it completes.
+            // NOTE: This adapter's callbackCount has already been initialized to zero by the constructor.
+
+            if (!this._isAdapterProc()) {
+                throw new Error(
+                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                        "' returned PS.WAIT_FOR_CALLBACK from block '" + currentBlock.name + "'" +
+                        " but it is not an adapter Proc."
+                    );
+            }
 
         } else {
             throw new Error(
@@ -1561,6 +1594,18 @@
 
         blocks[0].initial = true;
         blocks[lastNormalBlockIdx].isFinal = true;
+
+        if (ctor.adapter) {
+            if (lastNormalBlockIdx > 0) {
+                throw new Error("[PS._registerProc]  the adapter Proc '" + procName + "' can only have one block function!");
+            }
+            if (numCatchBlocks) {
+                throw new Error("[PS._registerProc]  the adapter Proc '" + procName + "' cannot have a _catch block function!");
+            }
+            if (numFinallyBlocks) {
+                throw new Error("[PS._registerProc]  the adapter Proc '" + procName + "' cannot have a _finally block function!");
+            }
+        }
 
         ctor.lastNormalBlockIdx = lastNormalBlockIdx;
 

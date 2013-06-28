@@ -25,33 +25,44 @@ var XHR = (function () {
 
     // Make the actual CORS request.
 
-    // XHR.makeCorsRequest is a ProcScript-compliant blocking function.
-    // This means that when it completes, 
-    // XHR.makeCorsRequest calls the success or failure callback of its caller Proc as appropriate.
+    // XHR.makeCorsRequest_Proc is an Adapter Proc for XmlHttpRequest
 
-    XHR.makeCorsRequest = function (proc, method, url) {
-        var xhr = XHR.createCORSRequest(method, url);
-        if (!xhr) {
-            throw new Error('[XHR.makeCorsRequest]  CORS not supported by your browser.')
-        }
+    XHR.makeCorsRequest_Proc = PS.defineProc({
+        name: "XHR.makeCorsRequest_Proc",
+        fnGetSignature: function () {
+            return {
+                method: ["string"],
+                url: ["string"],
+                responseText: ["string", "out"]  
+            };
+        },
+        adapter: true,
+        blocks: [
+        function sendRequest() {
+            var proc = this;
+            proc.responseText = null;   // initialize the 'responseText' output parameter
 
-        // Response handlers.
-        xhr.onload = function () {
+            var xhr = XHR.createCORSRequest(this.method, this.url);
+            if (!xhr) {
+                throw new Error('[XHR.makeCorsRequest]  CORS not supported by your browser.')
+            }
 
-            // Tell the waiting Proc that the blocking operation succeeded 
-            // and pass an object containing the results of the operation.
-            PS.callProcSuccessCallback(proc, xhr)
-        };
+            xhr.onload = function () {
+                proc.responseText = xhr.responseText;   // set the 'responseText' output parameter 
+                PS.callProcSuccessCallback(proc)        // The Adapter Proc succeeded
+            };
 
-        xhr.onerror = function () {
+            xhr.onerror = function () {
+                // // The Adapter Proc failed
+                PS.callProcFailureCallback(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
+            };
 
-            // Tell the waiting Proc that the blocking operation failed 
-            // and pass a descriptive error message.
-            PS.callProcFailureCallback(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
-        };
+            xhr.send();
 
-        xhr.send();
-    }
+            // Tell ProcScript to wait for a callback from the blocking function above.
+            return PS.WAIT_FOR_CALLBACK;
+        }]
+    });
 
 
     return XHR;

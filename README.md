@@ -12,7 +12,7 @@ While developing HTML5 web applications, I came to love and hate JavaScript.
 I love JavaScript because it is very dynamic and flexible and I really love the 
 unparalleled *write-once, run-anywhere* reach of HTML5 apps.  
 
-I hate JavaScript because it is *too* dynamic and flexible.  I enountered many frustrating
+I hate JavaScript because it is *too* dynamic and flexible.  I encountered many frustrating
 runtime errors that would be prevented by a type-checking system.  Many of the toughest 
 bugs to find and fix resulted from callers passing incomplete or mis-matched parameter lists to 
 functions.  
@@ -43,11 +43,11 @@ Procs
 -------
 
 The ProcScript framework allows you to define and run Procs.  A Proc is like an enhanced 
-JavaScript function with type-checked input and output parameters and  synchronous programming support.  A Proc has the following properties:
+JavaScript function with type-checked input and output parameters and synchronous programming support.  A Proc has the following properties:
 
 * Name:  The unique name of the Proc.  No two Proc definitions may have the same name.
 * Signature:  An object literal that defines the input and output parameters of the Proc.
-* Blocks:  The code of the Proc, specified as an array of one or more JavaScript functions.  ProcScript executes these functions in the order they are listed.
+* Blocks:  The code of the Proc, specified as an array of one or more JavaScript functions.  ProcScript executes these functions synchronously, in the order they are listed.
   
   
 My first Proc
@@ -89,7 +89,7 @@ The config object specifies that *MyFirstProc* takes one *string* input (`input1
 It has two blocks of code: the first block writes the value of the `input1` to the console and the second block sets the value of `output1` to "Hello World!".
 
 `PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  
-You can use this constructor function to create and run instances of *MyFirstProc* like this:
+Use the constructor function to create and run instances of *MyFirstProc* like this:
 
 	var procInstance = new MyFirstProc({input1: "Hi Mom!"});
 	procInstance.run();
@@ -98,7 +98,7 @@ You can use this constructor function to create and run instances of *MyFirstPro
 The signature
 -----------------
 
-The `fnGetSignature` member of the config object defines a function that returns an object literal.
+The `fnGetSignature` member of the config object is a function that returns an object literal.
 This object literal is called the *signature object* and it defines the input and output parameters of the Proc.  
 The signature object has this structure:
 
@@ -178,7 +178,7 @@ This works for core JavaScript classes (like Date or Array) but also for user-de
 	}
 
 
-then I can write a Proc that inputs or outputs a `Point` object.  For example, this Proc receives a `Point` object as input:
+then I can write a Proc that inputs or outputs a `Point` object.  For example, this Proc takes a `Point` object as input:
 
 
 	var PointProc = PS.defineProc({
@@ -215,14 +215,6 @@ Each block function in a Proc is a normal JavaScript function.  It is recommende
 descriptive name.  This makes Proc stack traces more informative and readable.  If you don't give a block function a 
 name, ProcScript auto-names it `block_N` where `N` is the index of the block function in the `blocks` array.
 
-A block function either has one parameter or no parameters.  The parameter gives the block function access to the result object of the 
-previous block function.  Here is an example of a block function with one parameter:
-
-	function blockFunc (resultObj) {
-	}
-  
-We named the parameter `resultObj` in this example, but you can choose any name you like.  If a block function does not need the results 
-of the previous block function, it should declare no parameters.
 
 
 Proc locals
@@ -231,14 +223,14 @@ Proc locals
 Inside a block function, `this` refers to the Proc instance that is running the block function.  Properties of the Proc instance 
 are referred to as *Proc locals*.
 
-For example, this block function sets the value of Proc local `x` to the `resultObj` value from the previous block function.
+For example, this block function sets the value of Proc local `x` to 'hello'.
 
-	function blockFunc (resultObj) {
-		this.x = resultObj;
+	function blockFunc () {
+		this.x = 'hello';
 	}
 	
 A Proc local is available in the block function where it is declared and in any subsequent block functions.  In a loop Proc,
-a Proc local is also available in any subsequent iterations of the loop.
+the Proc local is also available in any subsequent iterations of the loop.
 
 
 
@@ -280,17 +272,94 @@ Every block function must return one of the following values.  The return value 
 	Skip to the next iteration of a loop Proc.
 	
 *	*a Proc Instance*      
-	Run *a Proc Instance* and pass its results to the next block function.
+	Run *a Proc Instance* and pass its result object to the next block function.
 	
 *	`PS.WAIT_FOR_CALLBACK`  
-	Wait for a callback from a ProcScript-compliant blocking function and pass its results to the next block function.
+	Adapter Procs returns this to tell ProcScript to wait for a callback from a blocking function.
 
 	
 If a block function returns anything other than one of these values, ProcScript throws an error.
 
 
 
+	
+Procs can call other Procs
+-----------------------------------
 
+If the return value of a block function is a Proc instance, ProcScript runs the Proc Instance and passes its result object to the next block function.  This 
+allows you to chain Procs together into Proc call stacks just as you can chain regular JavaScript functions together into call stacks.
+
+Here is a simple example:
+
+    var ProcCallsProc = PS.defineProc({
+
+        name: "ProcCallsProc",
+        fnGetSignature: function () {
+            return {};
+        },
+        blocks: [
+        function blockFunction1() {
+            return new MyFirstProc({input1: "Hi Mom!"});
+        },
+        function blockFunction2(resultObj) {
+			console.log(resultObj.output1[0]);
+            return PS.NEXT;
+        }
+		]
+    });
+
+				
+A block function either has one parameter or no parameters.  If a block function calls a Proc that returns a result object, the next
+block function can access the result object by declaring a parameter to receive it.  `blockFunction2` in `ProcCallsProc` receives
+the result object from `MyFirstProc` in parameter `resultObj`.
+  
+
+If you run `ProcCallsProc` like this:
+	
+	var pi = new ProcCallsProc({})
+	pi.run();
+
+It produces this console output:
+
+	Hi Mom!
+	Hello World!
+
+Using this technique, you can create Proc call chains of any depth.  
+
+
+Proc call stacks
+--------------------
+
+The first Proc in a call chain is called the root Proc.  When a root Proc runs, 
+ProcScript allocates a virtual *thread* to maintain the call stack for that root Proc and any of its descendant (callee) Procs.
+
+You can dump the call stack from any Proc in a thread with this function:
+
+	Proc.callStackToString()
+	
+The stack dump looks like this:
+
+	Proc Call Stack:
+	 ProcScript Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)	 
+	 MyFirstProc.blockFunction1
+	 ProcCallsProc.blockFunction1
+
+Each Proc in the call chain is listed, one per line, with the root Proc at the bottom.
+
+Note that the Proc call stack starts with `ProcScript Thread Id: 0 Created ...`.  Once again, this is not an operating system thread 
+but a *virtual* ProcScript thread.  
+
+The Proc call stack contains the chain of Proc Instances that called each other leading up to the breakpoint or exception.  Each entry 
+in the Proc call stack is of the form `Proc Name`.`Block Function Name`.  In the example above,
+block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception  
+occured in the `blockFunction1` block function of `MyFirstProc`.
+
+
+To dump the call stacks of all ProcScript threads, use this function:
+
+	PS.threadsToString()
+
+	
 _catch and _finally block functions
 -------------------------------------
 
@@ -305,7 +374,7 @@ is no _catch block function, ProcScript propagates the error up the Proc call st
 If a Proc has a _finally block function, ProcScript *always* runs this block function before returning to the Proc's caller, regardless
 of whether a block function threw an error or not.
 
-Here is a simple example with _catch and _finally block functions:
+Here is a simple example using _catch and _finally block functions:
 
     var CatchFinallyProc = PS.defineProc({
 
@@ -317,8 +386,8 @@ Here is a simple example with _catch and _finally block functions:
         blocks: [
         function doIt() {
 			console.log("doIt: start spinner....");			
-			doBlockingOperation();
-            return PS.WAIT_FOR_CALLBACK;
+			undefinedFunction();
+            return PS.NEXT;
         },
 		function _catch (err) {
             console.log("_catch: err=" + err);
@@ -331,7 +400,7 @@ Here is a simple example with _catch and _finally block functions:
 		]
     });
 
-Note that the block function `doIt` calls the undefined function `doBlockingOperation()` which causes a JavaScript error.  If you run 
+Note that the block function `doIt` calls the undefined function `undefinedFunction()` which causes a JavaScript error.  If you run 
 this Proc like this:
 	
 	var p = new CatchFinallyProc({});
@@ -343,9 +412,10 @@ You will see this output:
 	
 	...ProcScript Stack Trace...
 	
-	_catch: err=ReferenceError: doBlockingOperation is not defined
+	_catch: err=ReferenceError: undefinedFunction is not defined
 	_finally: stop spinner....
 
+	
 
 Loop Procs
 ----------------------
@@ -598,142 +668,77 @@ If you want behavior like this:
 
 then put the _catch and _finally in an inner, non-loop Proc and call it from an outer loop Proc.
 
-
-Procs can call other Procs
------------------------------------
-
-When the return value of a block function is a Proc instance, ProcScript runs that Proc Instance and passes its results to the next block function.  This 
-allows you to chain Procs together into Proc call stacks just as you could chain regular JavaScript functions together into call stacks.
-
-Here is a simple example:
-
-    var ProcCallsProc = PS.defineProc({
-
-        name: "ProcCallsProc",
-        fnGetSignature: function () {
-            return {};
-        },
-		fnWhileTest: function () { return true; },
-        blocks: [
-        function blockFunction1() {
-			this.i = this.getCurrentLoopIterationIndex();
-            return new MyFirstProc({input1: "Iteration " + this.i});
-        },
-        function blockFunction2() {
-            if (this.i == 5) {
-				return PS.BREAK;
-			}
-            return PS.NEXT;
-        }
-		]
-    });
-
-If you run `ProcCallsProc` like this:
-	
-	var pi = new ProcCallsProc({})
-	pi.run();
-
-It produces this console output:
-
-	Iteration 0
-	Iteration 1
-	Iteration 2
-	Iteration 3
-	Iteration 4
-	Iteration 5
-
-Using this technique, you can create Proc call chains of any depth.  
-
-
-Proc call stacks
---------------------
-
-The first Proc in a call chain is called the root Proc.  When a root Proc runs, 
-ProcScript allocates a virtual *thread* to maintain the call stack for the root Proc and any of its descendant (callee) Procs.
-
-You can dump the call stack from any Proc in a thread with this function:
-
-	Proc.callStackToString()
-	
-The stack dump looks like this:
-
-	Proc Call Stack:
-	 ProcScript Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)	 
-	 MyFirstProc.blockFunction1
-	 ProcCallsProc.blockFunction1
-
-Each Proc in the call chain is listed, one per line, with the root Proc at the bottom.
-
-Note that the Proc call stack starts with `ProcScript Thread Id: 0 Created ...`.  Once again, this is not an operating system thread 
-but a *virtual* ProcScript thread.  
-
-The Proc call stack contains the chain of Proc Instances that called each other leading up to the breakpoint or exception.  Each entry 
-in the Proc call stack is of the form `Proc Name`.`Block Function Name`.  In the example above,
-block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception  
-occured in the `blockFunction1` block function of `MyFirstProc`.
-
-
-To get a dump of all active Proc call stacks, use this function:
-
-	PS.threadsToString()
-
-	
 	
 	 
-What is a ProcScript-compliant blocking function?
+What is an Adapter Proc?
 ---------------------------------------------------
 
-A ProcScript-compliant blocking function is simply a blocking function that notifies a waiting Proc of its result by
-calling `PS.callProcSuccessCallback` or `PS.callProcFailureCallback`.  Here is an example from the ProcScript demo app:
+An Adapter Proc turns a blocking function into a ProcScript Proc.  Writing an 
+Adapter Proc is simple:  just set the `adapter` property in the config object and then
+make the blocking function's success and failure callbacks call 
+`PS.callProcSuccessCallback` or `PS.callProcFailureCallback` as appropriate.
+
+Here is an example from the ProcScript demo app:
 	
-    // XHR.makeCorsRequest is a ProcScript-compliant blocking function.
-    // This means that when it completes, 
-    // XHR.makeCorsRequest calls the success or failure callback of its caller Proc as appropriate.
+    // XHR.makeCorsRequest_Proc is an Adapter Proc for XmlHttpRequest
 
-    XHR.makeCorsRequest = function (proc, method, url) {
-        var xhr = XHR.createCORSRequest(method, url);
-        if (!xhr) {
-            throw new Error('[XHR.makeCorsRequest]  CORS not supported by your browser.')
-        }
+    XHR.makeCorsRequest_Proc = PS.defineProc({
+        name: "XHR.makeCorsRequest_Proc",
+        fnGetSignature: function () {
+            return {
+                method: ["string"],
+                url: ["string"],
+                responseText: ["string", "out"]  
+            };
+        },
+        adapter: true,
+        blocks: [
+        function sendRequest() {
+            var proc = this;
+            proc.responseText = null;   // initialize the 'responseText' output parameter
 
-        // Response handlers.
-        xhr.onload = function () {
+            var xhr = XHR.createCORSRequest(this.method, this.url);
+            if (!xhr) {
+                throw new Error('[XHR.makeCorsRequest]  CORS not supported by your browser.')
+            }
 
-            // Tell the waiting Proc that the blocking operation succeeded 
-            // and pass an object containing the results of the operation.
-            PS.callProcSuccessCallback(proc, xhr)
-        };
+            xhr.onload = function () {
+                proc.responseText = xhr.responseText;   // set the 'responseText' output parameter 
+                PS.callProcSuccessCallback(proc)        // The Adapter Proc succeeded
+            };
 
-        xhr.onerror = function () {
+            xhr.onerror = function () {
+                // // The Adapter Proc failed
+                PS.callProcFailureCallback(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
+            };
 
-            // Tell the waiting Proc that the blocking operation failed 
-            // and pass a descriptive error message.
-            PS.callProcFailureCallback(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
-        };
+            xhr.send();
 
-        xhr.send();
-    }
+            // Tell ProcScript to wait for a callback from the blocking function above.
+            return PS.WAIT_FOR_CALLBACK;
+        }]
+    });
 
-Note that `XHR.makeCorsRequest` takes a Proc instance (`proc`) as input and passes it as the first parameter to 
-the `PS.callProcSuccessCallback` or `PS.callProcFailureCallback` functions.  
+	
+Note that `XHR.makeCorsRequest` stashes a reference to itself in the variable `proc`'.  It then passes `proc` as the first parameter to 
+the `PS.callProcSuccessCallback` and `PS.callProcFailureCallback` functions.  
 
-`PS.callProcSuccessCallback` signals to ProcScript that the blocking function completed successfully.  The second parameter 
-to `PS.callProcSuccessCallback` contains the results of the blocking operation and ProcScript passes it to the next block function 
-in the calling Proc.
+`PS.callProcSuccessCallback` signals to ProcScript that the Adapter Proc completed successfully.  Before calling this function, 
+the Adapter Proc must set the value of its "in-out" or "out" parameters appropriately.  
 
-`PS.callProcFailureCallback` signals to ProcScript that the blocking function failed.  The second parameter to `PS.callProcFailureCallback` 
-is an error string detailing the reason for the failure.  ProcScript passes the error string to the _catch handler for the calling Proc or
-propagates it up the call stack as described in the *_catch and _finally block functions* section.
+`PS.callProcFailureCallback` signals to ProcScript that the Adapter Proc failed.  The second parameter to `PS.callProcFailureCallback` 
+is an error string detailing the reason for the failure.  ProcScript passes the error string to the _catch handler of the calling Proc or
+propagates it up the call stack as described in the *_catch and _finally block functions* section of this ReadMe.
 
 
-Once you have defined a ProcScript-compliant blocking function, you can call it from a Proc's block function like this:
+Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is another example from the ProcScript demo app.
 
-	function sendCorsRequest() {
-		XHR.makeCorsRequest(this, httpMethod, url);
-		return PS.WAIT_FOR_CALLBACK;
-	}
+	return new XHR.makeCorsRequest_Proc({
+		method: this.httpMethodValue,
+		url: this.txtURLValue
+	});
 
-Note that the block function that calls `XHR.makeCorsRequest` returns PS.WAIT_FOR_CALLBACK.  This tells ProcScript to wait for a callback from `XHR.makeCorsRequest`.
+
 	
 	
 ProcScript debugging
