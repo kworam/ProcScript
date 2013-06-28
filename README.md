@@ -275,7 +275,7 @@ Every block function must return one of the following values.  The return value 
 	Run *a Proc Instance* and pass its result object to the next block function.
 	
 *	`PS.WAIT_FOR_CALLBACK`  
-	Adapter Procs returns this to tell ProcScript to wait for a callback from a blocking function.
+	Adapter Procs returns this value to tell ProcScript to wait for a callback from a blocking function.
 
 	
 If a block function returns anything other than one of these values, ProcScript throws an error.
@@ -670,7 +670,7 @@ then put the _catch and _finally in an inner, non-loop Proc and call it from an 
 
 	
 	 
-What is an Adapter Proc?
+Adapter Procs
 ---------------------------------------------------
 
 An Adapter Proc turns a blocking function into a ProcScript Proc.  Writing an 
@@ -721,25 +721,32 @@ Here is an example from the ProcScript demo app:
     });
 
 	
-Note that `XHR.makeCorsRequest` stashes a reference to itself in the variable `proc`'.  It then passes `proc` as the first parameter to 
+Note that `XHR.makeCorsRequest_Proc` stashes a reference to itself in the variable `proc`'.  It then passes `proc` as the first parameter to 
 the `PS.callProcSuccessCallback` and `PS.callProcFailureCallback` functions.  
 
 `PS.callProcSuccessCallback` signals to ProcScript that the Adapter Proc completed successfully.  Before calling this function, 
 the Adapter Proc must set the value of its "in-out" or "out" parameters appropriately.  
 
 `PS.callProcFailureCallback` signals to ProcScript that the Adapter Proc failed.  The second parameter to `PS.callProcFailureCallback` 
-is an error string detailing the reason for the failure.  ProcScript passes the error string to the _catch handler of the calling Proc or
-propagates it up the call stack as described in the *_catch and _finally block functions* section of this ReadMe.
+is an error string detailing the reason for the failure.  ProcScript propagates this error string up the Proc call stack 
+as described in the *_catch and _finally block functions* section of this ReadMe.
 
 
-Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is another example from the ProcScript demo app.
+Adapter Proc Use and Restrictions
+---------------------------------------------------
+
+
+Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is another example from the ProcScript demo app:
 
 	return new XHR.makeCorsRequest_Proc({
 		method: this.httpMethodValue,
 		url: this.txtURLValue
 	});
 
-
+	
+Adapter Procs can only have one block function and they cannot have _catch or _finally block functions.  Also, an Adapter Proc's
+block function must return `PS.WAIT_FOR_CALLBACK`, any other return value will cause ProcScript to throw an error.  Likewise, if a 
+non-Adapter Proc returns `PS.WAIT_FOR_CALLBACK`, ProcScript throws an error.  
 	
 	
 ProcScript debugging
@@ -912,18 +919,18 @@ These functions define, undefine or get a Proc in the ProcScript registry.
 	PS.undefineProc(procName)
 	PS.getProc(procName)
     
-A ProcScript-compliant callback function uses these functions to callback to a waiting Proc instance.
+Adapter Procs call these functions to tell ProcScript whether they succeeded or failed.
 
-	PS.callProcSuccessCallback(procInstance, resultObj)
-	PS.callProcFailureCallback(procInstance, errorMessage)
+	PS.callProcSuccessCallback(adapterProcInstance)
+	PS.callProcFailureCallback(adapterProcInstance, errorMessage)
 		
 These are the block function return values supported by ProcScript.
 
-	PS.RETURN
     PS.NEXT
-    PS.WAIT_FOR_CALLBACK
+	PS.RETURN
     PS.CONTINUE
     PS.BREAK
+    PS.WAIT_FOR_CALLBACK
 
 These functions add or remove ProcScript listeners.
 
@@ -964,7 +971,7 @@ getCurrentLoopIterationIndex() returns null if the Proc instance is not a loop P
 callStackToString() returns a string dump of the ProcScript thread for this Proc Instance.
 
 	_procState 
-All Proc Instances have a property named `_procState` that is reserved for use 
+All Proc Instances have a private property named `_procState` that is reserved for use 
 by ProcScript.  When defining Proc Locals on your Proc Instance, you may use
 any name other than `_procState`.
 		
