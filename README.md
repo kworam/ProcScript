@@ -86,7 +86,7 @@ For example, the following example defines a simple Proc called "MyFirstProc":
     });
 
 The config object specifies that *MyFirstProc* takes one *string* input (`input1`) and produces one *Array* output (`output1`).  
-It has two blocks of code: the first block writes the value of the `input1` to the console and the second block sets the value of `output1` to "Hello World!".
+It has two blocks of code: the first block writes the value of `input1` to the console and the second block sets the value of `output1` to "Hello World!".
 
 `PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  
 Use the constructor function to create and run instances of *MyFirstProc* like this:
@@ -275,7 +275,7 @@ Every block function must return one of the following values.  The return value 
 	Run *a Proc Instance* and pass its result object to the next block function.
 	
 *	`PS.WAIT_FOR_CALLBACK`  
-	Adapter Procs returns this value to tell ProcScript to wait for a callback from a blocking function.
+	Adapter Procs return this value to tell ProcScript to wait for a callback from a blocking function.
 
 	
 If a block function returns anything other than one of these values, ProcScript throws an error.
@@ -351,8 +351,8 @@ but a *virtual* ProcScript thread.
 
 The Proc call stack contains the chain of Proc Instances that called each other leading up to the breakpoint or exception.  Each entry 
 in the Proc call stack is of the form `Proc Name`.`Block Function Name`.  In the example above,
-block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception  
-occured in the `blockFunction1` block function of `MyFirstProc`.
+block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception occured in 
+the `blockFunction1` block function of `MyFirstProc`.
 
 
 To dump the call stacks of all ProcScript threads, use this function:
@@ -721,18 +721,18 @@ Here is an example from the ProcScript demo app:
     });
 
 	
-Note that `XHR.makeCorsRequest_Proc` stashes a reference to itself in the variable `proc`'.  It then passes `proc` as the first parameter to 
+Note that `XHR.makeCorsRequest_Proc` stashes a reference to itself in the variable `proc`.  It then passes `proc` as the first parameter to 
 the `PS.callProcSuccessCallback` and `PS.callProcFailureCallback` functions.  
 
 `PS.callProcSuccessCallback` signals to ProcScript that the Adapter Proc completed successfully.  Before calling this function, 
-the Adapter Proc must set the value of its "in-out" or "out" parameters appropriately.  
+the Adapter Proc must set the value of its "in-out" or "out" parameters.  
 
 `PS.callProcFailureCallback` signals to ProcScript that the Adapter Proc failed.  The second parameter to `PS.callProcFailureCallback` 
 is an error string detailing the reason for the failure.  ProcScript propagates this error string up the Proc call stack 
 as described in the *_catch and _finally block functions* section of this ReadMe.
 
 
-Adapter Proc Use and Restrictions
+Using Adapter Procs
 ---------------------------------------------------
 
 
