@@ -62,46 +62,6 @@
         return this;
     }
 
-    // NOTE: The 'nextTick' code below was borrowed from the Q project
-    // https://github.com/kriskowal/q
-
-    // Use the fastest possible means to execute a task in a future turn
-    // of the event loop.
-    var nextTick;
-    if (typeof process !== "undefined") {
-        // node
-        nextTick = process.nextTick;
-
-    } else if (typeof setImmediate === "function") {
-        // In IE10, or use https://github.com/NobleJS/setImmediate
-        nextTick = setImmediate;
-
-    } else if (typeof MessageChannel !== "undefined") {
-        // modern browsers
-        // http://www.nonblocking.io/2011/06/windownexttick.html
-        var channel = new MessageChannel();
-        // linked list of tasks (single, with head node)
-        var head = {}, tail = head;
-        channel.port1.onmessage = function () {
-            head = head.next;
-            var task = head.task;
-            delete head.task;
-            task();
-        };
-        nextTick = function (task) {
-            tail = tail.next = { task: task };
-            channel.port2.postMessage(0);
-        };
-
-    } else {
-        // old browsers
-        nextTick = function (task) {
-            setTimeout(task, 0);
-        };
-    }
-
-    PS._nextTick = nextTick;
-
 
     function Stack() {
         this.stac = new Array();
@@ -120,8 +80,6 @@
         return this.stac.length;
     }
     Stack.prototype.toArray = function () {
-        // we return a reversed copy of the internal stack array 
-        // to correspond to the ordering of the .NET Stack.ToArray() method.
         return this.stac.slice(0).reverse();
     }
     Stack.prototype.clear = function () {
@@ -129,16 +87,16 @@
     }
 
 
-    PS.callProcSuccessCallback = function (proc) {
+    PS.procSucceeded = function (proc) {
         var ps = proc._procState,
             currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
 
         if (!(proc instanceof PS.Proc)) {
-            throw new Error("[PS.callProcSuccessCallback] invalid Proc parameter.");
+            throw new Error("[PS.procSucceeded] invalid Proc parameter.");
         }
 
         if (!proc._isAdapterProc()) {
-            throw new Error("[PS.callProcSuccessCallback] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
+            throw new Error("[PS.procSucceeded] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
         }
 
         ps._callbackCount += 1;
@@ -146,21 +104,22 @@
             proc._successCallback.call(proc);
 
         } else {
-            throw new Error("[PS.callProcSuccessCallback] Adapter Proc '" + proc._getProcName() + "' received an extraneous success callback.\n" +
+            throw new Error("[PS.procSucceeded] Adapter Proc '" + proc._getProcName() + "' " +
+                "has received " + ps._callbackCount + " callbacks.\n" +
                 "An Adapter Proc should only receive one callback from its blocking function.");
         }
     }
 
-    PS.callProcFailureCallback = function (proc, err) {
+    PS.procFailed = function (proc, err) {
         if (!(proc instanceof PS.Proc)) {
-            throw new Error("[PS.callProcFailureCallback] invalid Proc parameter.");
+            throw new Error("[PS.procFailed] invalid Proc parameter.");
         }
 
         var ps = proc._procState,
             currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
 
         if (!proc._isAdapterProc()) {
-            throw new Error("[PS.callProcFailureCallback] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
+            throw new Error("[PS.procFailed] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
         }
 
         ps._callbackCount += 1;
@@ -168,7 +127,8 @@
             proc._failureCallback.call(proc, err, currentBlock.name, true);
 
         } else {
-            throw new Error("[PS.callProcFailureCallback] Adapter Proc '" + proc._getProcName() + "' received an extraneous failure callback.\n" +
+            throw new Error("[PS.procSucceeded] Adapter Proc '" + proc._getProcName() + "' " +
+                "has received " + ps._callbackCount + " callbacks.\n" +
                 "An Adapter Proc should only receive one callback from its blocking function.");
         }
     }
@@ -182,6 +142,26 @@
     PS._trim = function (s) {
         return s.replace(/^\s+|\s+$/g, "");
     }
+
+    PS.ProcList = function (arr) {
+        if (!(arr instanceof Array) || arr.length === 0) {
+            throw new TypeError("ProcList takes a non-empty array of Procs as input");
+        }
+
+        for (var i = 0, ln = arr.length; i < ln; i++) {
+            var proc = arr[i];
+            if (!(proc instanceof PS.Proc)) {
+                throw new TypeError("The element at index " + i + " is not a Proc");
+            }
+        }
+
+        this._arr = arr;
+    }
+
+    PS.ProcList.prototype.getArray = function () {
+        return this._arr;
+    }
+
 
     // Use unusual numbers for these reserved block function return values.
     // This minimizes the chance of a user 'accidentally' returning a value from a block function
@@ -535,21 +515,123 @@
 
 
     // start running the Proc
-    Proc.prototype.run = function () {
+    Proc.prototype.run = function (runParams) {
 
-        this._initProcInstance();
+        if (runParams !== undefined) {
+
+            if (runParams === null || typeof runParams !== "object") {
+                throw new TypeError("[PS.Proc.run]  Proc '" + this._getProcName() +
+                    "' was passed an invalid 'runParams' object.");
+            }
+        }
+
+        this._initProcInstanceToRun(runParams);
 
         PS.ProcRegistry._recordRun(this);
 
-        var emptyLoop = false;
-
         if (this._isEmptyLoop()) {
             // For an empty looping Proc, we skip running the Proc and assume it succeeded.
-            this._procReturn(true, true);
+            this._procReturn(true);
 
         } else {
             this._runCurrentBlock(null, null);
         }
+
+        return this.getThreadId();
+    };
+
+    Proc.prototype.setTimeout = function (timeoutMillis) {
+        var ps = this._procState;
+
+        if (!this.ready()) {
+            throw new Error("[PS.Proc.setTimeout]  Proc '" + this._getProcName() +
+                "' is running or finished so you cannot set a timeout on it.");
+        }
+        if (typeof timeoutMillis !== "number") {
+            throw new Error("[PS.Proc.setTimeout]  timeoutMillis must be a number.");
+        }
+
+        ps.timeoutMillis = timeoutMillis;
+
+        return this;
+    };
+
+    Proc.prototype.getTimeout = function () {
+        var ps = this._procState;
+
+        return ps.timeoutMillis;
+    };
+
+    Proc.prototype.abort = function (reason) {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        if (thread) {
+            if (!reason) {
+                reason = "Proc aborted";
+            }
+
+            thread.abort(reason);
+        }
+
+        return this;
+    };
+
+    Proc.prototype.ready = function () {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        return !thread || thread.ready();
+    };
+
+    Proc.prototype.running = function () {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        return thread && thread.running();
+    };
+
+    Proc.prototype.finished = function () {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        return thread && thread.finished();
+    };
+
+    Proc.prototype.aborted = function () {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        return thread && thread.aborted();
+    };
+
+    Proc.prototype.getParameterObject = function () {
+        return this._getParamObj();
+    }
+
+    Proc.prototype.getThreadId = function () {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        if (thread) {
+            return thread.getId();
+        }
+
+        return null;
+    }
+
+    Proc.prototype.getFailure = function () {
+        var ps = this._procState,
+            thread = ps.thread;
+
+        if (ps.err) {
+            return ps.err;
+
+        } else if (thread && thread.getAbortReason()) {
+            return thread.getAbortReason();
+        }
+
+        return null;
     };
 
     Proc.prototype._isLoopingProc = function () {
@@ -764,9 +846,55 @@
         return null;
     };
 
+    Proc.prototype._copyAndValidateOutParams = function () {
+        var rv = this._procState.rv,
+            signatureObj = this._getSignatureObj(),
+            po = this._getParamObj(),
+            numOutParams = 0;
+
+        // copy all properties in _procState.rv that correspond to 
+        // 'in-out' or 'out' parameters to paramObj.
+
+        for (var rvParamName in signatureObj) {
+            var paramDescriptor = signatureObj[rvParamName],
+                paramDir = 'in';
+
+            if (paramDescriptor) {
+                paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
+                paramDir = paramDir.toLowerCase();
+            }
+
+            if (paramDir != 'in') {
+                numOutParams++;
+                if (paramDir == 'in-out') {
+                    // I have changed all current 'in-out' parameters to exist only as Proc locals
+                    outputValue = this[rvParamName];
+
+                } else {
+                    // There are still many 'out' variables that have not been converted to Proc locals
+                    var outputValue = rv[rvParamName];
+                    if (typeof outputValue === "undefined") {
+                        // If there is no value for the 'out' parameter in rv,
+                        // then get it from a Proc local of the same name
+                        outputValue = this[rvParamName];
+                    }
+                }
+
+                po[rvParamName] = outputValue;
+            }
+        }
+
+        if (numOutParams > 0) {
+            // The signature has 1 or more 'in-out' or 'out' parameters,
+            // so validate those parameters against the signature
+            this._validateParamObj(false);
+        }
+    }
+
+
     // Returns control to the caller
     // NOTE:  we must execute any _finally block first.
-    Proc.prototype._procReturn = function (lastArg, emptyLoop) {
+    Proc.prototype._procReturn = function (lastArg) {
         // The Proc has completed successfully or failed.
 
         // First, run the finally block function (if any).     
@@ -776,10 +904,6 @@
             caller = this._getCaller(),
             finallyIdx = this._getFinallyBlockIdx(),
             catchIdx = this._getCatchBlockIdx();
-
-        if (typeof ps._procSavedLastArg === "undefined") {
-            ps._procSavedLastArg = lastArg;
-        }
 
         if (finallyIdx && ps.currentBlockIdx != finallyIdx) {
             // there is a finally block function and we have not run it yet.
@@ -799,126 +923,44 @@
                 // There is a caller,
                 // so now call its success or failure callback passing the appropriate return value.
 
-                var callSuccess = false,
-                    rv = null;
+                if (this.succeeded()) {
 
-                if (ps.failureSourceBlockIdx >= 0) {
-
-                    // an unhandled exception occurred in one of the Proc's block functions
-
-                    if (ps.failureSourceBlockIdx == finallyIdx || ps.failureSourceBlockIdx == catchIdx) {
-                        // the unhandled exception occurred in the _catch or the _finally block, 
-                        // so re-throw it to the caller
-                        callSuccess = false;
-                    }
-
-                    else if (catchIdx === null) {
-                        // this Proc has no catch block function 
-                        // call the failure callback of the caller
-                        callSuccess = false;
-
-
-                    } else {
-                        // this Proc has a catch block function
-                        // we have therefore successfully handled (absorbed) the exception
-                        // call the success callback of the caller
-                        callSuccess = true;
-                    }
+                    this._copyAndValidateOutParams();
+                    PS._dispatch(caller._successCallback, caller, ps.rv, this, currentBlock, false);
 
                 } else {
-                    // the Proc either ran without any unhandled exceptions in the normal block functions,
-                    // or an exception occurred in a normal block function but was successfully handled and absorbed.
-                    callSuccess = true;
-                }
 
-                // log that the current block of this Proc has exited
-                if (!emptyLoop) {
-                    var procKey = PS._getTraceDispatchProcKey(this);
-                    PS._traceDispatch(procKey, currentBlock.name, true);
-                }
-
-                if (callSuccess) {
-                    rv = this._procState.rv;
-
-                    // copy all properties in _procState.rv that correspond to 
-                    // 'in-out' or 'out' parameters to paramObj.
-                    var signatureObj = this._getSignatureObj(),
-                        po = this._getParamObj(),
-                        numOutParams = 0;
-
-                    for (var rvParamName in signatureObj) {
-                        var paramDescriptor = signatureObj[rvParamName],
-                            paramDir = 'in';
-
-                        if (paramDescriptor) {
-                            paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
-                            paramDir = paramDir.toLowerCase();
-                        }
-
-                        if (paramDir != 'in') {
-                            numOutParams++;
-                            if (paramDir == 'in-out') {
-                                // I have changed all current 'in-out' parameters to exist only as Proc locals
-                                outputValue = this[rvParamName];
-
-                            } else {
-                                // There are still many 'out' variables that have not been converted to Proc locals
-                                var outputValue = rv[rvParamName];
-                                if (typeof outputValue === "undefined") {
-                                    // If there is no value for the 'out' parameter in rv,
-                                    // then get it from a Proc local of the same name
-                                    outputValue = this[rvParamName];
-                                }
-                            }
-
-                            po[rvParamName] = outputValue;
-                        }
-                    }
-
-                    if (numOutParams > 0) {
-                        // The signature has 1 or more 'in-out' or 'out' parameters,
-                        // so validate those parameters against the signature
-                        this._validateParamObj(false);
-                    }
-
-//                    if (caller._isAdapterProc()) {
-//                        // The caller of this Proc is an Adapter Proc so stash this Proc's paramObj on the Adapter Proc
-//                        var adapterPS = caller._procState;
-//                        adapterPS._passThruParamObj = ps.paramObj;
-
-//                    } else if (ps._passThruParamObj) {
-//                        // When an Adapter Proc calls a Proc, it passes the return object of the callee Proc through to its caller
-//                        rv = ps._passThruParamObj;
-//                    }
-
-                    PS._dispatch(caller._successCallback, caller, rv, this, currentBlock.name, false);
-
-                } else {
-                    PS._dispatch(caller._failureCallback, caller, ps._procSavedLastArg, this, currentBlock.name, false);
+                    PS._dispatch(caller._failureCallback, caller, ps.err, this, currentBlock, false);
                 }
 
             } else {
-                // This Proc has no caller
+                // This is a root Proc (it has no caller)
 
-                // log that the current block of this Proc has exited
-                if (!emptyLoop) {
-                    var procKey = PS._getTraceDispatchProcKey(this);
-                    PS._traceDispatch(procKey, currentBlock.name, true);
-                }
-
-                // update the Proc call stack to reflect that the current Proc has exited
+                // Update the Proc call stack to reflect that the current Proc has exited
                 ps.thread._procExit();
 
-                if (ps.failureSourceBlockIdx >= 0 && !catchIdx) {
-                    var blocks = this._getProcBlocks(),
-                        failureBlock = blocks[ps.failureSourceBlockIdx];
+                if (ps.timeoutID) {
+                    clearTimeout(ps.timeoutID);
+                }
 
-                    // an unhandled exception occurred in one of the Proc's block functions
-                    // and there is no caller to pass it to.
+                //                if (ps.failureSourceBlockIdx >= 0 && !catchIdx) {
+                //                    var blocks = this._getProcBlocks(),
+                //                        failureBlock = blocks[ps.failureSourceBlockIdx];
 
-                    var msg = "Proc '" + this._getProcName() + "', Block '" + failureBlock.name + "':  An unhandled failure occurred.  See console for details.";
-                    PS._log(msg);
-                    alert(msg);
+                //                    // an unhandled exception occurred in one of the Proc's block functions
+                //                    // and there is no caller to pass it to.
+
+                //                    var msg = "Proc '" + this._getProcName() + "', Block '" + failureBlock.name + "':  An unhandled failure occurred.  See console for details.";
+                //                    PS._log(msg);
+                //                    alert(msg);
+                //                }
+
+                if (this.succeeded()) {
+                    this._copyAndValidateOutParams();
+                }
+
+                if (ps.fnFinished) {
+                    ps.fnFinished(this);
                 }
             }
         }
@@ -928,7 +970,7 @@
         // called by block functions when they complete successfully
 
         if (typeof rv === "undefined") {
-            rv = true;
+            rv = false;
         }
 
         var ps = this._procState,
@@ -938,8 +980,9 @@
             // the Proc state machine has completed all normal blocks successfully
             // or it has successfully completed its _catch or _finally bock.
 
-            if (this._loopContinues(ps)) {
-                // reset the 'forEach', 'whileTest' or 'for' loop Proc and run it again
+            if (this._loopContinues(ps) && ps.failureSourceBlockIdx < 0) {
+                // No exception has occurred in this loop and the loop condition is still true.
+                // Reset the loop Proc and run it again.
 
                 var previousBlock = this._getProcBlocks()[ps.currentBlockIdx];
                 ps.currentBlockIdx = 0;
@@ -979,6 +1022,7 @@
         var ps = this._procState;
 
         ps.failureSourceBlockIdx = ps.currentBlockIdx;
+        ps.err = err;
 
         // handle the failure
         var catchIdx = this._getCatchBlockIdx(),
@@ -989,8 +1033,8 @@
             // or the failure happened in the _catch block itself,
             // or the failure happened in the _finally block
 
-            // _procReturn will run any finally block function (if any and if it hasn't already run it)
-            // and then 'throw' the failure to the caller.
+            // _procReturn runs the finally block function (if any and if it hasn't already run it)
+            // and then 'throws' the failure to the caller.
             this._procReturn(err);
 
         } else {
@@ -1008,15 +1052,7 @@
         var ps = this._procState,
             currentBlock = this._getProcBlocks()[ps.currentBlockIdx];
 
-        //PS._log("Proc '" + this._getProcName() + "': running block '" + currentBlock.name + "'");
-
-        if (previousBlock) {
-            // log that the previous block function has exited
-            var procKey = PS._getTraceDispatchProcKey(this);
-            PS._traceDispatch(procKey, previousBlock.name, true);
-        }
-
-        PS._dispatch(currentBlock.handler, this, arg, this, currentBlock.name, true);
+        PS._dispatch(currentBlock.handler, this, arg, this, currentBlock, true);
     };
 
     Proc.prototype._getSignatureObj = function () {
@@ -1048,18 +1084,46 @@
         return blocks;
     };
 
-    Proc.prototype._initProcInstance = function () {
+    Proc.prototype._initProcInstanceToRun = function (runParams) {
         // Initialize the Proc instance so it is ready to run
+        if (!runParams) {
+            runParams = {};
+        }
 
-        var ps = this._procState,
+        var proc = this,
+            ps = this._procState,
             paramObj = this._getParamObj(),
-            caller = this._getCaller();
+            caller = this._getCaller(),
+            timeoutMillis = runParams.timeout,
+            fnFinished = runParams.fnFinished;
 
-        ps._traceDispatchUniqueId = PS._traceDispatchUniqueIdCounter++;
+        if (timeoutMillis === undefined || timeoutMillis === null) {
+            timeoutMillis = 0
+        }
 
-        ps.currentBlockIdx = 0;
+        this.setTimeout(timeoutMillis);
 
+        function timeoutAbort() {
+            proc.abort("Proc " + proc._getProcName() + " timed out after " + proc.getTimeout() + " milliseconds.");
+        }
+
+        if (this.getTimeout() > 0) {
+            ps.timeoutID = setTimeout(timeoutAbort, this.getTimeout());
+        }
+
+
+        if (fnFinished !== undefined && typeof fnFinished !== "function") {
+            throw new Error("Invalid 'fnFinished' passed to Proc " + this._getProcName());
+        }
+        ps.fnFinished = fnFinished;
+
+        // NOTE: make sure to verify the thread status before initializing the Proc state
         if (!caller || !caller._procState.thread) {
+            if (this.running() || this.finished()) {
+
+                throw new Error("Proc " + this._getProcName() + " is running or finished, you cannot re-run it.");
+            }
+
             // create a new thread for this Proc
             PS._createThread(this);
 
@@ -1067,6 +1131,10 @@
             // add this Proc to the thread of its caller
             PS._setThread(this, caller._procState.thread);
         }
+
+        // Initiiaze the Proc state so it is ready to run
+        ps._traceDispatchUniqueId = PS._traceDispatchUniqueIdCounter++;
+        ps.currentBlockIdx = 0;
     }
 
 
@@ -1189,41 +1257,57 @@
         // E4X XMLList object	"xml"
         // Any other object	"object"
 
-        if (typeof paramType !== "undefined" && paramValue !== null) {
+        if (typeof paramType !== "undefined" && paramType !== null && paramValue !== null) {
 
             // The caller specified a type for this parameter,
             // and the input paramValue is not NULL,
             // so check the parameter value against the specified type
             var typeMisMatch = false,
                 expectedParamTypeStr = null,
-                actualParamTypeStr = null;
+                actualParamTypeStr = null,
+                invalidParamType = false;
 
-            if (paramType === "string" || paramType === "boolean" || paramType === "number") {
-                // paramType indicates paramValue must be a String, Boolean or Number
+            if (typeof paramType === "string") {
+                var lowerParamType = paramType.toLowerCase();
+                if (lowerParamType === "string" || lowerParamType === "boolean" || lowerParamType === "number" || lowerParamType === "function") {
+                    // paramType indicates paramValue must be a String, Boolean, Number or Function
 
-                actualParamTypeStr = typeof paramValue;
-                if (actualParamTypeStr !== paramType) {
-                    typeMisMatch = true;
-                    expectedParamTypeStr = paramType;
+                    actualParamTypeStr = typeof paramValue;
+                    if (actualParamTypeStr !== lowerParamType) {
+                        typeMisMatch = true;
+                        expectedParamTypeStr = paramType;
+                    }
+                } else {
+                    invalidParamType = true;
                 }
+
+            } else if (typeof paramType === 'function') {
+                if (!(paramValue instanceof paramType)) {
+                    // paramType indicates paramValue should be an instanceof the function paramType
+
+                    typeMisMatch = true;
+                    expectedParamTypeStr = PS._parseFunctionName2(paramType);
+
+                    if (typeof paramValue === 'function') {
+                        actualParamTypeStr = PS._parseFunctionName2(paramValue);
+
+                    } else if (typeof paramValue === 'object' && typeof paramValue.constructor === 'function') {
+                        actualParamTypeStr = PS._parseFunctionName2(paramValue.constructor);
+
+                    } else {
+                        actualParamTypeStr = typeof paramValue;
+                    }
+                }
+
+            } else {
+                invalidParamType = true;
             }
 
-            else if (typeof paramType === 'function' && !(paramValue instanceof paramType)) {
-                // paramType indicates paramValue should be an instanceof the function paramType
+            if (invalidParamType) {
+                var errMsg = "[PS.Proc._typeCheckParameter]  The signature of Proc '" + procName +
+                        "' has an invalid parameter type of '" + paramType + "' for parameter '" + paramName + "'.\n";
 
-                typeMisMatch = true;
-                expectedParamTypeStr = PS._parseFunctionName2(paramType);
-
-                if (typeof paramValue === 'function') {
-                    actualParamTypeStr = PS._parseFunctionName2(paramValue);
-
-                } else if (typeof paramValue === 'object' && typeof paramValue.constructor === 'function') {
-                    actualParamTypeStr = PS._parseFunctionName2(paramValue.constructor);
-
-                } else {
-                    actualParamTypeStr = typeof paramValue;
-                }
-
+                throw new Error(errMsg);
             }
 
             if (typeMisMatch) {
@@ -1322,7 +1406,7 @@
                 ps.currentBlockIdx = this.constructor.lastNormalBlockIdx;
             }
 
-            this._successCallback();
+            this._successCallback(false);
 
         } else if (blockReturnValue instanceof PS.Proc) {
             var proc = blockReturnValue,
@@ -1364,28 +1448,28 @@
     PS._traceDispatchUniqueIdCounter = 0;
 
 
-    PS._traceDispatch = function (procKey, blockName, blockExit) {
-        //        if (blockExit) {
-        //            PS._log("exiting  [" + procKey + "].[" + blockName + "]");
+    PS._dispatch = function (f, scope, arg, proc, block, functionStarting) {
 
-        //        } else {
-        //            PS._log("running  [" + procKey + "].[" + blockName + "]");
-        //        }
-    }
-
-    PS._dispatch = function (f, scope, arg, proc, blockName, functionStarting) {
+        var blockName = block.name,
+            thread = proc._procState.thread,
+            procDispatch = null;
 
         if (functionStarting) {
             // The ProcScript runtime has started running the block function for block 'blockName' in Proc 'proc'.
             var procKey = PS._getTraceDispatchProcKey(proc);
 
-            PS._traceDispatch(procKey, blockName, false);
+            //PS._traceDispatch(procKey, blockName, false);
 
-            proc._procState.thread._blockStart(procKey, blockName);
+            // maintain the Proc call stack
+            thread._blockStart(procKey, blockName);
 
-            PS._nextTick(function procDispatch() {
+            procDispatch = function () {
 
                 try {
+                    if (proc.aborted() && !block._catch && !block._finally) {
+                        throw new Error(proc.getFailure());
+                    }
+
                     proc._processBlockReturnValue(
                         f.call(scope, arg)
                     );
@@ -1397,18 +1481,24 @@
                     // call this Proc's failure callback passing the unhandled exception object
                     proc._failureCallback(err, blockName, true)
                 }
-            }, 0);
+            }
 
         } else {
             // The ProcScript runtime is calling the success or failure callback of a caller Proc.
 
             // update the Proc call stack to reflect that the current Proc has exited
-            proc._procState.thread._procExit();
+            thread._procExit();
 
-            PS._nextTick(function procDispatch() {
+            procDispatch = function () {
                 f.call(scope, arg)
-            }, 0);
+            }
         }
+
+
+        // asap comes from https: //github.com/kriskowal/asap
+        // I modified it to work in browsers as well as node and submitted the change as a pull request.
+        asap(procDispatch);
+
     }
 
     PS._getErrorMessageForException = function (err, blockName, proc) {
@@ -1627,10 +1717,11 @@
     }
 
 
-    PS._threads = {};
+    PS._runningThreads = {};
     PS._threadUniqueIdCounter = 0;
     PS._createThread = function (proc) {
         var t = new PS.Thread();
+        t._status = PS.THREAD_STATUS_RUNNING;
         proc._procState.thread = t;
     }
     PS._setThread = function (proc, t) {
@@ -1639,7 +1730,7 @@
 
     PS.threadsToString = function () {
         var s = '',
-            threads = PS._threads;
+            threads = PS._runningThreads;
 
         for (var tid in threads) {
             var thread = threads[tid];
@@ -1654,19 +1745,101 @@
         return s;
     }
 
+    PS.THREAD_STATUS_READY = "ready";
+    PS.THREAD_STATUS_RUNNING = "running";
+    PS.THREAD_STATUS_FINISHED = "finished";
+
     PS.Thread = function () {
         this._uniqueId = PS._threadUniqueIdCounter++;
         this._callStack = new Stack();
         this._createDate = new Date();
 
-        PS._threads[this._uniqueId] = this;
+        this._aborted = false;
+        this._abortReason = null;
+        this._status = PS.THREAD_STATUS_READY;
+
+        PS._runningThreads[this._uniqueId] = this;
+    }
+
+
+    PS.Thread.prototype.getId = function () {
+        return this._uniqueId;
+    }
+
+    PS.Thread.prototype.abort = function (reason) {
+        this._aborted = true;
+        this._abortReason = reason;
+    }
+
+    PS.Thread.prototype.ready = function () {
+        return this._status === PS.THREAD_STATUS_READY;
+    }
+
+    PS.Thread.prototype.running = function () {
+        return this._status === PS.THREAD_STATUS_RUNNING;
+    }
+
+    PS.Thread.prototype.finished = function () {
+        return this._status === PS.THREAD_STATUS_FINISHED;
+    }
+
+    Proc.prototype.succeeded = function () {
+        var ps = this._procState,
+            finallyIdx = this._getFinallyBlockIdx(),
+            catchIdx = this._getCatchBlockIdx(),
+            success = false;
+
+        if (ps.failureSourceBlockIdx >= 0) {
+
+            // an unhandled exception occurred in one of the Proc's block functions
+
+            if (ps.failureSourceBlockIdx == finallyIdx || ps.failureSourceBlockIdx == catchIdx) {
+                // the unhandled exception occurred in the _catch or the _finally block, 
+                // so re-throw it to the caller
+                success = false;
+            }
+
+            else if (catchIdx === null) {
+                // this Proc has no catch block function 
+                // call the failure callback of the caller
+                success = false;
+
+
+            } else {
+                // this Proc has a catch block function
+                // we have therefore successfully handled (absorbed) the exception
+                // call the success callback of the caller
+                success = true;
+            }
+
+        } else {
+            // the Proc either ran without any unhandled exceptions in the normal block functions,
+            // or an exception occurred in a normal block function but was successfully handled and absorbed.
+            success = true;
+        }
+
+        return success;
+    }
+
+    Proc.prototype.failed = function () {
+        return this.aborted() || !this.succeeded();
+    }
+
+    PS.Thread.prototype.aborted = function () {
+        return this._aborted;
+    }
+
+    PS.Thread.prototype.getAbortReason = function () {
+        return this._abortReason;
     }
 
     PS.Thread.prototype._procExit = function () {
         this._callStack.pop();
 
         if (this._callStack.count() == 0) {
-            delete PS._threads[this._uniqueId];
+            this._status = PS.THREAD_STATUS_FINISHED;
+
+            delete PS._runningThreads[this._uniqueId];
         }
     }
 

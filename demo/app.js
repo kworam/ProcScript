@@ -52,7 +52,7 @@ var App = (function () {
 
             // Store the result message in a Proc local.
             this.resultMsg =
-                "Success\nSent " + this.httpMethodValue + " request to " + this.txtURLValue + ":\nResponse Text:\n" +
+                "SUCCESS\n\nSent " + this.httpMethodValue + " request to " + this.txtURLValue + ":\nResponse Text:\n" +
                 prevResult.responseText;
 
             // Log the successful result to the database.
@@ -76,7 +76,7 @@ var App = (function () {
 
             // Store the result message in a Proc local.
             this.resultMsg =
-                "Failure\nAttempted to send " + this.httpMethodValue + " request to " + this.txtURLValue + ":\nError Details:\n" + err;
+                "FAILURE\n\nAttempted to send " + this.httpMethodValue + " request to " + this.txtURLValue + ":\nError Details:\n" + err;
 
             // Log the failure result to the database.
             var cmd = "Insert into History (DateTime, Result) values (" +

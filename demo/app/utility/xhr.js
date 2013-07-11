@@ -49,12 +49,12 @@ var XHR = (function () {
 
             xhr.onload = function () {
                 proc.responseText = xhr.responseText;   // set the 'responseText' output parameter 
-                PS.callProcSuccessCallback(proc)        // The Adapter Proc succeeded
+                PS.procSucceeded(proc)        // The Adapter Proc succeeded
             };
 
             xhr.onerror = function () {
                 // // The Adapter Proc failed
-                PS.callProcFailureCallback(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
+                PS.procFailed(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
             };
 
             xhr.send();

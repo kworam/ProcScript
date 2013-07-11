@@ -53,7 +53,7 @@ var WebSQLManager = (function () {
                             // Tell the waiting Proc that the blocking operation succeeded 
                             // and pass an object containing the results of the operation.
                             proc.resultSet = results;
-                            PS.callProcSuccessCallback(proc);
+                            PS.procSucceeded(proc);
                         },
                         function executeSqlFailure(tx, err) {
                             var procErrorMessage = "[WebSQLManager.executeSQL_Proc.executeSqlFailure]\n" +
@@ -62,7 +62,7 @@ var WebSQLManager = (function () {
 
                             // Tell the waiting Proc that the blocking operation failed 
                             // and pass a descriptive error message.
-                            PS.callProcFailureCallback(proc, procErrorMessage);
+                            PS.procFailed(proc, procErrorMessage);
                         });
 
                     }, 
@@ -73,7 +73,7 @@ var WebSQLManager = (function () {
 
                     // Tell the waiting Proc that the blocking operation failed 
                     // and pass a descriptive error message.
-                    PS.callProcFailureCallback(proc, procErrorMessage);
+                    PS.procFailed(proc, procErrorMessage);
                 }
             );
 
