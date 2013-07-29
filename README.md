@@ -31,12 +31,13 @@ To overcome these JavaScript problems, I developed ProcScript.  ProcScript adds 
 ProcScript features
 -------------------------
 
+* Pure JavaScript: No Compilers or Preprocessors
 * Type Checks Input and Output Parameters
 * Makes Synchronous Programming Easy
-* Pure JavaScript: No Compilers or Preprocessors
-* Code JavaScript like you would C# or Java
+* Use C# or Java skills to write JavaScript
 * Great Debugging Support
 * Provides Code Coverage Statistics
+* Works with Promises
 
 
 Procs
@@ -88,8 +89,8 @@ For example, the following example defines a simple Proc called "MyFirstProc":
 The proc config specifies that *MyFirstProc* takes one *string* input (`input1`) and produces one *Array* output (`output1`).  
 It has two blocks of code: the first block writes the value of `input1` to the console and the second block sets the value of `output1` to "Hello World!".
 
-`PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  
-Use the constructor function to create and run instances of *MyFirstProc* like this:
+`PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  Use the constructor function 
+to create and run instances of *MyFirstProc* like this:
 
 	var procInstance = new MyFirstProc({input1: "Hi Mom!"});
 	procInstance.run();
@@ -116,7 +117,7 @@ The following `paramType` values are allowed:
 	The parameter value must be a JavaScript boolean, number, string or function value.
 	
 *	*class constructor function*				
-	The parameter value must be an `instanceof` the class.
+	The object parameter value must be an `instanceof` the class.
 	
 *	null        	
 	The parameter value may be any type.
@@ -141,25 +142,25 @@ The following `paramDir` values are allowed:
 
 
 
-ProcScript enforces the signature
+Enforcing the signature
 ------------------------------------
 Notice that the `MyFirstProc` constructor function takes an object literal called a *parameter object* as input:
 
 	var procInstance = new MyFirstProc({input1: "Hi Mom!"});
 
-ProcScript checks the parameter object against the signature object.  If it does not contain a value of the right type 
-for each "in" and "in-out" parameter in the signature, ProcScript throws an error.  
+When you create a Proc instance, ProcScript checks the parameter object against the signature object.  If it does not contain a value of the right type 
+for each "in" and "in-out" parameter, ProcScript throws an error.  
 
-Similarly, before a Proc returns to its caller, ProcScript checks its parameter object against the signature object. If it 
-does not contain a value of the right type for each "in-out" and "out" parameter in the signature, ProcScript throws an error.
+Likewise, ProcScript checks the parameter object against the signature just before a Proc returns to its caller. If it 
+does not contain a value of the right type for each "in-out" and "out" parameter, ProcScript throws an error.
 
 
-Type checking classes
+Type checking objects
 --------------------------------------
 
-As mentioned above, if the `paramType` of a parameter is the constructor function for a class, ProcScript checks that the parameter value is an `instanceof` that class.  
+As mentioned above, if the `paramType` of a parameter is a class constructor function, ProcScript checks that the parameter value is an `instanceof` that class.  
 
-This works for core JavaScript classes (like Date or Array) but also for user-defined classes.  For example, if the Point class is defined like this:
+This works for core JavaScript classes (like Date or Array) but also for user-defined classes.  For example, if you define a Point class like this:
 
 	function Point(x, y) {
 		this.x = x;
@@ -171,7 +172,7 @@ This works for core JavaScript classes (like Date or Array) but also for user-de
 	}
 
 
-We can write a Proc that inputs or outputs a `Point` object like this:
+You can write a Proc that inputs or outputs a `Point` object like this:
 
 
 	var PointProc = PS.defineProc({
@@ -189,15 +190,6 @@ We can write a Proc that inputs or outputs a `Point` object like this:
 		}]
 		
 	});
-
-Running `PointProc` like this:
-
-	new PointProc({ inPoint: new Point(1, 2) }).run();
-
-produces this console output:
-
-	{1,2}
-
 
 
 	
@@ -222,12 +214,11 @@ For example, this block function sets Proc local `x` to 'hello'.
 		this.x = 'hello';
 	}
 	
-A Proc local is available in the block function where it is declared and in subsequent block functions.  In a loop Proc,
-it is also available in subsequent iterations of the loop.
+A Proc local is available in the block function where it is declared and in subsequent block functions.  
 
 
 
-Using Proc parameters in a block function
+Getting and setting Proc parameters 
 ------------------------------------------------
 
 ProcScript automatically creates Proc locals for each "in" and "in-out" parameter.  `blockFunction1` of `MyFirstProc` 
@@ -250,7 +241,7 @@ shows this with "out" parameter `output1`:
 Block function return values
 -----------------------------------
 
-Every block function in a Proc must return one of the following values.  The return value tells ProcScript what to do next:
+All block functions must return one of the following values.  The return value tells ProcScript what to do next:
 
 *	`PS.NEXT`       
 	Run the next block function.
@@ -276,7 +267,7 @@ If a block function returns anything other than one of these values, ProcScript 
 
 
 	
-Procs can call other Procs
+Chaining Procs
 -----------------------------------
 
 If a block function returns a Proc instance, ProcScript runs it and passes its parameter object to the next block function.  This 
@@ -305,12 +296,11 @@ Here is a simple example:
 If a block function returns a Proc instance, ProcScript runs it and passes its parameter object to the next block function.  In
 `ProcCallsProc`, `blockFunction2` receives the parameter object from `MyFirstProc` in variable `paramObj`.
 
-If you run `ProcCallsProc` like this:
+Running `ProcCallsProc` like this:
 	
-	var pi = new ProcCallsProc({})
-	pi.run();
+	new ProcCallsProc({}).run();
 
-It produces this console output:
+produces this console output:
 
 	Hi Mom!
 	Hello World!
@@ -321,7 +311,7 @@ It produces this console output:
 Proc call stacks
 --------------------
 
-The first Proc Instance in a call chain is called the root Proc.  When a root Proc runs, 
+The first Proc Instance in a call stack is called the root Proc.  When a root Proc runs, 
 ProcScript allocates a virtual *thread* for that root Proc and its descendant (callee) Procs.
 
 You can dump the call stack from any Proc Instance in a thread with this function:
@@ -337,16 +327,22 @@ The stack dump looks like this:
 
 Each Proc Instance in the call chain is listed, one per line, with the root Proc at the bottom.
 
-Note that the Proc call stack starts with `ProcScript Thread Id: 0 Created ...`.  Once again, this is not an operating system thread 
-but a *virtual* ProcScript thread.  
+Note that the Proc call stack starts with:
+
+	ProcScript Thread Id: 0 Created ...
+	
+Once again, this is not an operating system thread but a *virtual* ProcScript thread.  
 
 The Proc call stack contains the chain of Proc Instances that called each other leading up to the breakpoint or exception.  Each entry 
-in the Proc call stack is of the form `Proc Name`.`Block Function Name`.  In the example above,
-block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception occured in 
+in the Proc call stack is of the form:
+
+	Proc Name.Block Function Name
+
+In the example above, block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception occured in 
 the `blockFunction1` of `MyFirstProc`.
 
 
-To dump the call stacks of all ProcScript threads, use this function:
+To dump the call stacks of all active ProcScript threads, use this function:
 
 	PS.threadsToString()
 
@@ -357,7 +353,7 @@ _catch and _finally block functions
 If you name a block function *_catch* or *_finally*, ProcScript treats it as the catch or finally clause for the Proc.  There can only be  
 one _catch or _finally block function in a Proc and they must come last in the `blocks` array.
 
-The _catch and _finally block functions perform the same duties for the Proc that `catch` and `finally` clauses do for regular JavaScript
+The _catch and _finally block functions perform the same duties for Procs that `catch` and `finally` clauses do for JavaScript
 functions.  If a block function throws an error, ProcScript passes it to the Proc's _catch block function for handling.  If the Proc has no 
 _catch block function, ProcScript propagates the error to the caller Proc until it finds one with a _catch handler.  
 
@@ -390,11 +386,9 @@ Here is a Proc with _catch and _finally block functions:
 		
     });
 
-Note that block function `doIt` calls `undefinedFunction()` which causes a JavaScript error.  If you run 
-this Proc like so:
+Note that block function `doIt` calls `undefinedFunction()` which causes a JavaScript error.  If you run `CatchFinallyProc` like so:
 	
-	var p = new CatchFinallyProc({});
-	p.run();
+	new CatchFinallyProc({}).run();
 
 You will see this output:
 
@@ -417,14 +411,13 @@ ProcScript supports four loop constructs:
 3. While
 4. Do...While
 
-ProcScript implements loops with *Loop Procs*.  You define a loop Proc by specifying a loop property in its proc config. 
+ProcScript implements these constructs with *Loop Procs*.  You define a loop Proc by specifying a loop property in its proc config. 
 
 
 For loops
 --------------------
 
-If the proc config contains an `fnForLoop` property, you define a `For` loop Proc.
-Here is an example:
+Define a `For` loop proc with the `fnForLoop` property like so:
 
 	var ForLoopProc = PS.defineProc({
 
@@ -456,7 +449,7 @@ ProcScript runs the For loop Proc as follows:
 		- If it returns true, run the entire Proc, then `afterIteration` and then go to step 2 again.
 		- If it returns false, return to the Proc's caller.
 
-This is equivalent to the following for loop in Java:
+This is equivalent to the following `for` loop in Java:
 
 	public void forLoop (char[] arr)
 	{
@@ -466,12 +459,11 @@ This is equivalent to the following for loop in Java:
 		}
 	}
 
-If you run ForLoopProc like this:	
+Run ForLoopProc like this:	
 
-	var p = new ForLoopProc({arr: ['a','b','c','d','e','f']});
-	p.run();
+	new ForLoopProc({arr: ['a','b','c','d','e','f']}).run();
 
-You will see this output:
+and you will see this output:
 
 	f
 	d
@@ -481,8 +473,7 @@ You will see this output:
 ForEach loops
 ----------------------
 
-If the proc config contains an `fnGetForEachArray` property, you define a `ForEach` loop Proc.
-Here is an example:
+Define a `ForEach` loop proc with the `fnGetForEachArray` property like so:
 
     var MyForEachProc = PS.defineProc({
 
@@ -503,10 +494,10 @@ Here is an example:
 		
     });
 
-The `fnGetForEachArray` property of the proc config is a function that returns an array.  ProcScript calls this function once, at Proc 
-startup time.  It then executes the Proc once for each member of the resulting array.  
+The `fnGetForEachArray` property defines a function that returns an array.  ProcScript calls this function once, at Proc 
+startup time, and then executes the Proc once for each member of the resulting array.  
 
-The `ForEach' example demonstrates the following loop support functions:
+This example demonstrates the following loop support functions:
 
 `Proc.getCurrentForEachItem()`			returns the current item in the `ForEach` array.
 
@@ -520,8 +511,7 @@ The `ForEach' example demonstrates the following loop support functions:
 While loops
 --------------------------
 
-If the proc config contains an `fnWhileTest` property, you define a `While` loop Proc.
-Here is an example:
+Define a `While` loop proc with the `fnWhileTest` property like so:
 
     var WhileProc = PS.defineProc({
 
@@ -548,16 +538,17 @@ Here is an example:
 		
     });
 
-The `fnWhileTest` property of the proc config is a function that returns a boolean (true or false) value.  ProcScript calls 
-the `fnWhileTest` function before executing the first block function in the Proc.  If it returns false, ProcScript returns to 
-the caller.  If it returns true, ProcScript runs the Proc.  ProcScript repeats this process until the `fnWhileTest` function returns false.
+The `fnWhileTest` property defines a function that returns a boolean (true or false) value.  ProcScript calls 
+this function before executing the first block function in the Proc.  If it returns false, ProcScript returns to 
+the caller.  If it returns true, ProcScript runs the Proc.  
+
+ProcScript repeats this process until the `fnWhileTest` function returns false.
 
 
 Do...While loops
 --------------------------
 
-If the proc config contains an `fnDoWhileTest` property, you define a `DoWhile` loop Proc.
-Here is an example:
+Define a `Do...While` loop proc with the `fnDoWhileTest` property like so:
 
 	var DoWhileProc = PS.defineProc({
 
@@ -579,17 +570,19 @@ Here is an example:
 	});
 
 
-The `fnDoWhileTest` property of the proc config is a function that returns a boolean (true or false) value.  ProcScript calls 
+The `fnDoWhileTest` property defines a function that returns a boolean (true or false) value.  ProcScript calls 
 the `fnDoWhileTest` function after executing the last block function in the Proc.  If it returns false, ProcScript returns to 
-the caller.  If it returns true, ProcScript runs the Proc.  ProcScript repeats this process until the `fnDoWhileTest` function returns false.
+the caller.  If it returns true, ProcScript runs the Proc again. 
 
 
 Control Flow in loop Procs
 ------------------------------------------
 
-In a loop Proc, the block function return value `PS.CONTINUE` works like the JavaScript `continue` statement.  ProcScript skips the 
-remaining block functions and begins running the next iteration of the loop.  Likewise, the return value `PS.BREAK` works like the 
-JavaScript `break` statement.  It makes ProcScript immediately return to the Proc's caller.  For example, if you define and run this loop Proc:
+In a loop Proc, return value `PS.CONTINUE` works like the JavaScript `continue` statement.  ProcScript skips the 
+remaining block functions and begins running the next iteration of the loop.  Likewise, return value `PS.BREAK` works like the 
+JavaScript `break` statement.  It makes ProcScript immediately return to the Proc's caller.  
+
+If you define and run this loop Proc:
 
 
     var LoopControlsProc = PS.defineProc({
@@ -619,8 +612,7 @@ JavaScript `break` statement.  It makes ProcScript immediately return to the Pro
 		
     });
 	
-	var p = new LoopControlsProc({input1: "LoopControlsProc", arr: [0,1,2,3,4]});
-	p.run();
+	new LoopControlsProc({input1: "LoopControlsProc", arr: [0,1,2,3,4]}).run();
 	
 you will get this console output:
 
@@ -634,8 +626,8 @@ If a block function in a non-loop Proc returns `PS.CONTINUE` or `PS.BREAK`, Proc
 Catch-Finally in loop Procs
 ------------------------------------------
 
-If a loop Proc has _catch or _finally block functions, ProcScript behaves as if they are outside the loop, not inside it.
-The equivalent JavaScript code would look like this:
+If a loop Proc has _catch or _finally block functions, ProcScript behaves as if they are outside the loop, not inside.  The equivalent 
+JavaScript code would look like this:
 
 	try {
 		while (bContinue) {
@@ -645,7 +637,7 @@ The equivalent JavaScript code would look like this:
 	} finally {
 	}
 
-If you want behavior like this:
+If you want the try-catch inside the loop like this:
 
 	while (bContinue) {
 		try {
@@ -655,15 +647,15 @@ If you want behavior like this:
 		}
 	}
 
-then put the _catch and _finally in an inner, non-loop Proc and call it from the outer loop Proc.
+then put the _catch and _finally in a non-loop Proc and call it from the loop Proc.
 
 	
 	 
 Adapter Procs
 ---------------------------------------------------
 
-An Adapter Proc turns a blocking function into a ProcScript Proc.  Writing an Adapter Proc is simple:  
-just set the `adapter` property in the proc config and make the blocking function's success and failure callbacks call 
+An Adapter Proc turns a blocking function into a Proc.  Writing an Adapter Proc is simple:  
+just set the `adapter` property in the proc config and make the blocking function call 
 `PS.procSucceeded` or `PS.procFailed` as appropriate.
 
 Here is an example from the ProcScript demo app:
@@ -691,12 +683,13 @@ Here is an example from the ProcScript demo app:
             }
 
             xhr.onload = function () {
+                // The Adapter Proc succeeded
                 proc.responseText = xhr.responseText;   // set the 'responseText' output parameter 
-                PS.procSucceeded(proc)        // The Adapter Proc succeeded
+                PS.procSucceeded(proc)        
             };
 
             xhr.onerror = function () {
-                // // The Adapter Proc failed
+                // The Adapter Proc failed
                 PS.procFailed(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
             };
 
@@ -709,20 +702,19 @@ Here is an example from the ProcScript demo app:
     });
 
 	
-Note that `XHR.makeCorsRequest_Proc` stashes a reference to itself in variable `proc` and passes it to 
+Note how `XHR.makeCorsRequest_Proc` stashes a reference to itself in variable `proc` and passes it to 
 the `PS.procSucceeded` or `PS.procFailed` function.  
 
 `PS.procSucceeded` tells ProcScript that the Adapter Proc completed successfully.  Before calling this function, 
 the Adapter Proc must set the value of its "in-out" or "out" parameters.  
 
 `PS.procFailed` tells ProcScript that the Adapter Proc failed.  The second parameter to `PS.procFailed` 
-is an error string detailing the reason for the failure.  ProcScript propagates this error string up the Proc call stack 
+is a string containing the reason for the failure.  ProcScript propagates this error string up the Proc call stack 
 as described in the *_catch and _finally block functions* section of this readme.
 
 
 Using Adapter Procs
 ---------------------------------------------------
-
 
 Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is an example from the ProcScript demo app:
 
@@ -732,9 +724,59 @@ Once you have defined an Adapter Proc, you can call it as you would any other Pr
 	});
 
 	
-Adapter Procs can only have one block function and they cannot have _catch or _finally clauses.  The Adapter Proc's
+Adapter Procs can only have one block function and they cannot have _catch or _finally clauses.  An Adapter Proc's
 block function must return `PS.WAIT_FOR_CALLBACK`, any other return value causes ProcScript to throw an error.  If a 
 non-Adapter Proc returns `PS.WAIT_FOR_CALLBACK`, ProcScript throws an error.  
+
+	
+Working with Promises
+---------------------------------------
+ProcScript works with Promise frameworks like Q:
+
+https://github.com/kriskowal/q
+
+and JQuery:
+
+http://api.jquery.com/Types/#Deferred
+http://api.jquery.com/Types/#Promise
+
+`PS.promiseToRun` takes in a deferred, a Proc instance and (optionally) runParams, and returns a promise:
+
+	PS.promiseToRun(deferred, proc, runParams)
+
+`PS.promiseToRun` runs the specified Proc instance with the specified runParams (if any).  If the Proc succeeds, 
+it resolves the deferred with its parameter object like so:
+
+	deferred.resolve(this.getParameterObject())
+
+If it fails, it rejects the deferred with its failure object like so:
+
+	deferred.reject(this.getFailure())
+	
+This lets you run Proc instances as part of a promise chain.  Here is an example using Q:
+
+	fnReturnsPromise().then( 
+		
+	function () { 
+		return PS.promiseToRun(Q.defer(), new MyProc());
+	}).then(
+
+	function () {
+		fnReturnsPromise() 
+	});
+
+and here is an example using JQuery:
+
+	fnReturnsPromise().then( 
+		
+	function () { 
+		return PS.promiseToRun($.Deferred(), new MyProc());
+	}).then(
+
+	function () {
+		fnReturnsPromise() 
+	});
+
 	
 	
 ProcScript debugging
@@ -745,6 +787,7 @@ a developer uses the framework incorrectly, ProcScript makes every effort to pro
 
 ProcScript maintains a Proc call stack for each Proc call chain.  If an unhandled exception occurs in a block function, 
 ProcScript writes a detailed error summary to the console including the Proc call stack as well as the JavaScript call stack.  
+
 Here is an example from the ProcScript demonstration app:
 
 	[onProcException] localhost/:14
@@ -934,8 +977,15 @@ These functions provide access to ProcScript's code coverage statistics.
     PS.cloneProcRegistry()
     PS.codeCoverageToString()
 
+`PS.promiseToRun` takes a deferred, a Proc instance and (optionally) runParams, and returns a promise.
 
-ProcRunners run multiple Proc Instances in various ways (parallel, sequence, race or fallback).  `PS.ProcList` is 
+	PS.promiseToRun(deferred, proc, runParams)
+
+`PS.promiseToRun` runs the specified Proc instance and resolves or rejects the deferred when the Proc finishes.  If the Proc  
+succeeds, it resolves the deferred with its parameter object.  If it fails, it rejects the deferred with its failure message.
+
+
+ProcRunners are Adapter Procs that run multiple Proc Instances in various ways (parallel, sequence, race or fallback).  `PS.ProcList` is 
 a helper class for passing Proc Instances to a ProcRunner.
 
 	PS.ProcList(arr)
