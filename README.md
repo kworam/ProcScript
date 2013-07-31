@@ -259,7 +259,7 @@ All block functions must return one of the following values.  The return value t
 	Run *Proc Instance* and pass its parameter object to the next block function.
 	
 *	`PS.WAIT_FOR_CALLBACK`  
-	Adapter Procs return this to tell ProcScript to wait for a callback from a blocking function.
+	Adapter Procs return this value so ProcScript will wait for a callback from a blocking function.
 
 	
 If a block function returns anything other than one of these values, ProcScript throws an error.
@@ -271,7 +271,7 @@ Chaining Procs
 -----------------------------------
 
 If a block function returns a Proc instance, ProcScript runs it and passes its parameter object to the next block function.  This 
-lets you to chain Procs together into call stacks.
+lets you chain Procs together into call stacks.
 
 Here is a simple example:
 
@@ -660,10 +660,10 @@ just set the `adapter` property in the proc config and make the blocking functio
 
 Here is an example from the ProcScript demo app:
 	
-    // XHR.makeCorsRequest_Proc is an Adapter Proc for XmlHttpRequest
+    // XHR.makeCorsRequestProc is an Adapter Proc for XmlHttpRequest
 
-    XHR.makeCorsRequest_Proc = PS.defineProc({
-        name: "XHR.makeCorsRequest_Proc",
+    XHR.makeCorsRequestProc = PS.defineProc({
+        name: "XHR.makeCorsRequestProc",
         fnGetSignature: function () {
             return {
                 method: ["string"],
@@ -702,7 +702,7 @@ Here is an example from the ProcScript demo app:
     });
 
 	
-Note how `XHR.makeCorsRequest_Proc` stashes a reference to itself in variable `proc` and passes it to 
+Note how `XHR.makeCorsRequestProc` stashes a reference to itself in variable `proc` and passes it to 
 the `PS.procSucceeded` or `PS.procFailed` function.  
 
 `PS.procSucceeded` tells ProcScript that the Adapter Proc completed successfully.  Before calling this function, 
@@ -718,7 +718,7 @@ Using Adapter Procs
 
 Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is an example from the ProcScript demo app:
 
-	return new XHR.makeCorsRequest_Proc({
+	return new XHR.makeCorsRequestProc({
 		method: this.httpMethodValue,
 		url: this.txtURLValue
 	});
@@ -738,6 +738,7 @@ https://github.com/kriskowal/q
 and JQuery:
 
 http://api.jquery.com/Types/#Deferred
+
 http://api.jquery.com/Types/#Promise
 
 `PS.promiseToRun` takes in a deferred, a Proc instance and (optionally) runParams, and returns a promise:
