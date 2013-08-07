@@ -86,8 +86,8 @@ For example, the following example defines a simple Proc called "MyFirstProc":
 		
     });
 
-The proc config specifies that *MyFirstProc* takes one *string* input (`input1`) and produces one *Array* output (`output1`).  
-It has two blocks of code: the first block writes the value of `input1` to the console and the second block sets the value of `output1` to "Hello World!".
+The proc config specifies that *MyFirstProc* takes one *string* input (`input1`) and produces one *Array* output (`output1`).  It has two blocks of code: 
+the first block writes the value of `input1` to the console and the second block sets the value of `output1` to "Hello World!".
 
 `PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  Use the constructor function 
 to create and run instances of *MyFirstProc* like this:
@@ -193,8 +193,8 @@ You can write a Proc that inputs or outputs a `Point` object like this:
 
 
 	
-Block functions 
-------------------
+Block functions and Proc Locals
+----------------------------------
 
 Each block function in a Proc is a normal JavaScript function.  You should give each block function a
 descriptive name as this makes Proc stack traces more informative and readable.  If you don't give a block function a 
@@ -215,11 +215,6 @@ For example, this block function sets Proc local `x` to 'hello'.
 	}
 	
 A Proc local is available in the block function where it is declared and in subsequent block functions.  
-
-
-
-Getting and setting Proc parameters 
-------------------------------------------------
 
 ProcScript automatically creates Proc locals for each "in" and "in-out" parameter.  `blockFunction1` of `MyFirstProc` 
 shows this with the "in" parameter `input1`:

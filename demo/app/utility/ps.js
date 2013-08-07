@@ -1,4 +1,4 @@
-﻿/*!
+/*!
 *
 * Copyright 2013 Kevin Woram.
 *
@@ -259,7 +259,8 @@
         // create the constructor function for this Proc
         var c = new Function("paramObj",
             "if (!(this instanceof PS.Proc)) { throw new Error (\"You must use the 'new' keyword to create an instance of Proc '" + name + "'.\"); }; " +
-            "PS.Proc.call(this, paramObj);"
+            "PS.Proc.call(this, paramObj); " +
+            "this._validateParamObj(true);"
             );
 
         c.procName = name;
@@ -422,9 +423,7 @@
 
 
     PS.Proc = function (paramObj) {
-        this._ctorInit(paramObj);
-
-        return this;
+        return this._ctorInit(paramObj); 
     };
 
     var Proc = PS.Proc;
@@ -435,7 +434,6 @@
 
         // this._procState holds the unique state of each Proc instance
         var ps = this._procState = {};
-
 
         ps.currentBlockIdx = null;
         ps.failureSourceBlockIdx = -1;
@@ -454,12 +452,7 @@
 
         ps._callbackCount = 0;
 
-        // Validate the paramObj of this instance against the signature
-        if (this.constructor !== PS.Proc) {
-            // If we are constructing a subclass of PS.Proc, not PS.Proc itself,
-            // then we should validate the paramObj against the signature.
-            this._validateParamObj(true);
-        }
+        return this;
     },
 
     Proc.prototype.getParamValue = function (paramName) {
@@ -1164,7 +1157,7 @@
 
             } else if (typeof deferred.resolve !== "function") {
                 throw new Error("The deferred object passed to Proc " + this._getProcName() + " does not have a 'resolve' function.");
-            
+
             } else if (typeof deferred.promise !== "function" && typeof deferred.promise !== "object") {
                 throw new Error("The deferred object passed to Proc " + this._getProcName() + " does not have a 'promise' function or object.");
             }
@@ -1485,7 +1478,7 @@
         } else {
             throw new Error(
             "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
-                "' got an unsupported return value from block '" + currentBlock.name + "'!" +
+                "' got an invalid return value from block '" + currentBlock.name + "'!" +
                 " value=" + blockReturnValue
             );
         }
@@ -1589,8 +1582,8 @@
         return errorMessage;
     }
 
-    PS._makeSubclass = function (superclass, ctor) {
-        ctor.prototype = new superclass({});
+    PS._makeProcSubclass = function (ctor) {
+        ctor.prototype = new PS.Proc();
         ctor.prototype.constructor = ctor;
     }
 
@@ -1598,14 +1591,7 @@
     // This function makes a Proc subclass out the specified constructor function.
     PS._registerProc = function (ctor) {
 
-        PS._makeSubclass(PS.Proc, ctor);
-
-        // Remove _procState from the prototype object
-        // We want _procState to be created by sub-classes.
-        // If it exists in the prototype object,
-        // code that checks for its existence in the sub-class will falsely
-        // think that the sub-class has already created it.
-        delete ctor.prototype._procState;
+        PS._makeProcSubclass(ctor);
 
         // sanity check the Proc
         var procName = ctor.procName;
