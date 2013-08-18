@@ -38,6 +38,7 @@ ProcScript features
 * Great Debugging Support
 * Provides Code Coverage Statistics
 * Works with Promises
+* Perform Sequence, Parallel, Fallback and Race operations with timeout and abort.
 
 
 Procs
