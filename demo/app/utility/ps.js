@@ -584,7 +584,7 @@
 
         PS.ProcRegistry._recordRun(this);
 
-        this.fireStatusChanged("running");
+        this._fireStatusChanged(PS.PROC_STATUS_RUNNING);
 
         if (this._isEmptyLoop()) {
             // For an empty looping Proc, we skip running the Proc and assume it succeeded.
@@ -622,7 +622,7 @@
         return this._procState.timeoutMillis;
     };
 
-    Proc.prototype.setTimeoutReason = function (reason) {
+    Proc.prototype._setTimeoutReason = function (reason) {
         this._procState.timeoutReason = reason;
     }
     Proc.prototype.getTimeoutReason = function () {
@@ -649,6 +649,9 @@
         return this;
     };
 
+    PS.PROC_STATUS_RUNNING = "running";
+    PS.PROC_STATUS_FINISHED = "finished";
+        
     Proc.prototype.addStatusChangedListener = function (fnStatusChangedListener) {
         // add a status changed listener for this Proc instance
         if (typeof fnStatusChangedListener !== "function") {
@@ -657,7 +660,7 @@
         this._procState.statusChangedListeners.push(fnStatusChangedListener);
     }
 
-    Proc.prototype.fireStatusChanged = function (status) {
+    Proc.prototype._fireStatusChanged = function (status) {
         var ps = this._procState,
             statusChangedListeners = ps.statusChangedListeners;
 
@@ -1034,7 +1037,7 @@
 
                 this._determineSucceeded();
 
-                this.fireStatusChanged("finished");
+                this._fireStatusChanged(PS.PROC_STATUS_FINISHED);
 
                 if (ps.deferred) {
                     if (this.succeeded()) {
@@ -1181,15 +1184,10 @@
 
         if (timeoutMillis === undefined || timeoutMillis === null) {
             var existingTimeout = this.getTimeout();
-            timeoutMillis = existingTimeout ? existingTimeout : 0;
+            timeoutMillis = existingTimeout || 0;
         }
 
         this.setTimeout(timeoutMillis);
-
-        function timeoutAbort() {
-            proc.setTimeoutReason(proc.getTimeout() + " ms timeout");
-            proc.abort(proc.getTimeoutReason());
-        }
 
         if (this.getTimeout() > 0) {
             ps.timeoutID = setTimeout(timeoutAbort, this.getTimeout());
@@ -1199,6 +1197,10 @@
             this.addStatusChangedListener(fnStatusChanged);
         }
 
+        function timeoutAbort() {
+            proc._setTimeoutReason(proc.getTimeout() + " ms timeout");
+            proc.abort(proc.getTimeoutReason());
+        }
 
         if (deferred !== undefined) {
             if (typeof deferred.reject !== "function") {
@@ -2111,13 +2113,12 @@
 });
 
 
-var SequenceProcRunner = PS.defineProc({
+PS.SequenceProcRunner = PS.defineProc({
 
     name: "SequenceProcRunner",
     fnGetSignature: function () {
         return {
-            procList: [PS.ProcList],
-            milliseconds: ["number"]
+            procList: [PS.ProcList]
         };
     },
     adapter: {
@@ -2150,7 +2151,7 @@ var SequenceProcRunner = PS.defineProc({
 	                // Run the next Proc in the sequence
 	                nextProc = arrProcs[me.currProcIdx],
 					runParams = {
-					    timeout: nextProc.getTimeout() || me.milliseconds,
+					    timeout: nextProc.getTimeout() || me.getTimeout(),
 					    fnStatusChanged: fnStatusChanged
 					};
 	                nextProc.run(runParams);
@@ -2166,7 +2167,7 @@ var SequenceProcRunner = PS.defineProc({
 	    // Run the first Proc in the sequence
 	    nextProc = arrProcs[me.currProcIdx],
 		runParams = {
-		    timeout: nextProc.getTimeout() || me.milliseconds,
+		    timeout: nextProc.getTimeout() || me.getTimeout(),
 		    fnStatusChanged: fnStatusChanged
 		};
 	    nextProc.run(runParams);
@@ -2177,14 +2178,12 @@ var SequenceProcRunner = PS.defineProc({
 });
 
 
-
-var FallbackProcRunner = PS.defineProc({
+PS.FallbackProcRunner = PS.defineProc({
 
     name: "FallbackProcRunner",
     fnGetSignature: function () {
         return {
             procList: [PS.ProcList],
-            milliseconds: ["number"],
             fallbackIndex: ["number", "out"]
         };
     },
@@ -2225,7 +2224,7 @@ var FallbackProcRunner = PS.defineProc({
 	                // Run the next Proc in the fallback
 	                nextProc = arrProcs[me.currProcIdx],
 					runParams = {
-					    timeout: nextProc.getTimeout() || me.milliseconds,
+					    timeout: nextProc.getTimeout() || me.getTimeout(),
 					    fnStatusChanged: fnStatusChanged
 					};
 	                nextProc.run(runParams);
@@ -2236,7 +2235,7 @@ var FallbackProcRunner = PS.defineProc({
 	    // Run the first Proc in the fallback
 	    nextProc = arrProcs[me.currProcIdx],
 		runParams = {
-		    timeout: nextProc.getTimeout() || me.milliseconds,
+		    timeout: nextProc.getTimeout() || me.getTimeout(),
 		    fnStatusChanged: fnStatusChanged
 		};
 	    nextProc.run(runParams);
@@ -2247,15 +2246,12 @@ var FallbackProcRunner = PS.defineProc({
 });
 
 
-
-
-var RaceProcRunner = PS.defineProc({
+PS.RaceProcRunner = PS.defineProc({
 
     name: "RaceProcRunner",
     fnGetSignature: function () {
         return {
             procList: [PS.ProcList],
-            milliseconds: ["number"],
             winnerIndex: ["number", "out"]
         };
     },
@@ -2305,7 +2301,7 @@ var RaceProcRunner = PS.defineProc({
 	        nextProc = arrProcs[i];
 	        nextProc.racerIdx = i;
 	        runParams = {
-	            timeout: nextProc.getTimeout() || me.milliseconds,
+	            timeout: nextProc.getTimeout() || me.getTimeout(),
 	            fnStatusChanged: fnStatusChanged
 	        };
 	        nextProc.run(runParams);
@@ -2317,14 +2313,12 @@ var RaceProcRunner = PS.defineProc({
 });
 
 
-
-var ParallelProcRunner = PS.defineProc({
+PS.ParallelProcRunner = PS.defineProc({
 
     name: "ParallelProcRunner",
     fnGetSignature: function () {
         return {
-            procList: [PS.ProcList],
-            milliseconds: ["number"]
+            procList: [PS.ProcList]
         };
     },
     adapter: {
@@ -2369,7 +2363,7 @@ var ParallelProcRunner = PS.defineProc({
 	    for (var i = 0; i < arrProcs.length; i++) {
 	        nextProc = arrProcs[i],
 			runParams = {
-			    timeout: nextProc.getTimeout() || me.milliseconds,
+			    timeout: nextProc.getTimeout() || me.getTimeout(),
 			    fnStatusChanged: fnStatusChanged
 			};
 	        nextProc.run(runParams);

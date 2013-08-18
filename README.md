@@ -981,7 +981,7 @@ These functions provide access to ProcScript's code coverage statistics.
 succeeds, it resolves the deferred with its parameter object.  If it fails, it rejects the deferred with its failure message.
 
 
-ProcRunners are Adapter Procs that run multiple Proc Instances in various ways (parallel, sequence, race or fallback).  `PS.ProcList` is 
+ProcRunners are Adapter Procs that run multiple Proc Instances in various ways.  `PS.ProcList` is 
 a helper class for passing Proc Instances to a ProcRunner.
 
 	PS.ProcList(arr)
@@ -990,7 +990,54 @@ a helper class for passing Proc Instances to a ProcRunner.
 The constructor function takes an array of Proc Instances.  It type-checks the array and ensures it is not empty.
 `getArray` returns the type-checked array of Proc Instances.
 
+ProcScript pre-defines four ProcRunners for your convenience.  Set a timeout for a ProcRunner by calling 
+PS.Proc.setTimeout() before running it.  Abort a running ProcRunner by calling PS.Proc.abort() on it.
+ 
+Here are the names and signatures of the four pre-defined ProcRunners:
 
+	PS.SequenceProcRunner
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList]
+        };
+    }
+
+PS.SequenceProcRunner runs the specified list of Procs in sequence. If any Proc fails, PS.SequenceProcRunner fails.  
+	
+	PS.FallbackProcRunner
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList],
+            fallbackIndex: ["number", "out"]
+        };
+    }
+
+PS.FallbackProcRunner runs the specified list of Procs in sequence.  If all the Procs fail, PS.FallbackProcRunner fails.  Otherwise,
+PS.FallbackProcRunner returns the index of the first Proc to succeed in 'fallbackIndex' and does not run the remaining Procs.
+
+	PS.RaceProcRunner
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList],
+            winnerIndex: ["number", "out"]
+        };
+    }
+
+PS.RaceProcRunner starts all of the Procs in the specified list running simultaneously.  If all the Procs fail, PS.RaceProcRunner 
+fails.  Otherwise, PS.RaceProcRunner returns the index of the first Proc to succeed in 'fallbackIndex'.
+  
+
+	PS.ParallelProcRunner
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList]
+        };
+    }
+	
+PS.ParallelProcRunner starts all of the Procs in the specified list running simultaneously.  If any of the Procs fail, PS.ParallelProcRunner 
+fails.
+
+	
 PS.Proc API
 -------------
 
@@ -1003,24 +1050,35 @@ instances of `PS.Proc` and can access these functions:
 You can optionally pass `run` an object literal called `runParams`.  runParams can contain the following properties:
 
 	runParams.timeout 
-	runParams.fnFinished 
+	runParams.fnStatusChanged
+	
+If `runParams.timeout` is defined, ProcScript calls `setTimeout` on the Proc Instance with the specified value.
+If `runParams.fnStatusChanged` is defined, ProcScript calls `addStatusChangedListener` on the Proc Instance with the specified value.
 
-If the Proc Instance has not finished after `timeout` millseconds, it aborts itself with a reason of "timeout".
-When the Proc Instance finishes, ProcScript calls fnFinished passing the finished Proc Instance as the only parameter.
-	
-	
+		
 	abort ( [reason] )
 
-aborts the Proc Instance.
-If `reason` is specified, ProcScript reports it as the reason why the Proc Instance was aborted.
+aborts the Proc Instance.  If `reason` is specified, ProcScript reports it as the reason why the Proc Instance was aborted.
 
-	running()
+	setTimeout(ms)
 
-true if the Proc Instance is running.
+If the Proc has not finished after 'ms' milliseconds, it aborts itself with a reason of "timeout".  If 'ms' is zero, the Proc never times out.
+
+	getTimeout()
+
+Returns the millisecond timeout setting for the Proc.
+
+	getTimeoutReason()
+
+Returns the reason that the Proc timed out.  If the Proc has not timed out, returns undefined.
 	
-	finished()
+	setInstanceName(name)
 
-true if the Proc Instance is finished (succeeded or failed).
+Sets the name associated with this Proc instance to the string `name`.
+
+	getInstanceName()
+	
+Returns the name associated with this Proc instance or undefined.
 
 	succeeded()
 
@@ -1065,14 +1123,33 @@ Returns null if the Proc instance is not a loop Proc.
 
 callStackToString() returns a string dump of the ProcScript thread for this Proc Instance.
 
+You can register for status change events from a Proc instance using this function:
+
+	addStatusChangedListener(fnStatusChangedListener)
+
+where `fnProcStatusChanged` is a function like this:
+
+    var fnStatusChangedListener = function (proc, status) { ... }
+
+and 
+
+`proc`is the Proc whose status has changed and 
+`status` is one of the following string values:  
+
+    PS.PROC_STATUS_RUNNING
+    PS.PROC_STATUS_FINISHED
+
+
+NOTE:  All Proc Instances have a private property named `_procState` that is reserved for use 
+by ProcScript. 
+
 	_procState 
 
-All Proc Instances have a private property named `_procState` that is reserved for use 
-by ProcScript.  When defining Proc Locals on your Proc Instance, you may use
-any name other than `_procState`.
+When defining Proc Locals on your Proc Instance, you may use any name other than `_procState`.
 		
-		
-		
+	
+
+				
 	
 A ProcScript Demo 
 ------------------------------

@@ -71,16 +71,16 @@ var App = (function () {
         var msg = "";
         if (proc.succeeded()) {
             var po = proc.getParameterObject(),
-                    msg = proc.getInstanceName() + " succeeded";
+                msg = proc.getInstanceName() + " succeeded";
 
-            if (proc instanceof RaceProcRunner) {
+            if (proc instanceof PS.RaceProcRunner) {
                 var arrProcs = po.procList.getArray(),
-                        winnerProc = arrProcs[po.winnerIndex];
+                    winnerProc = arrProcs[po.winnerIndex];
                 msg += ", winner is " + winnerProc.getInstanceName();
 
-            } else if (proc instanceof FallbackProcRunner) {
+            } else if (proc instanceof PS.FallbackProcRunner) {
                 var arrProcs = po.procList.getArray(),
-                        fallbackProc = arrProcs[po.fallbackIndex];
+                    fallbackProc = arrProcs[po.fallbackIndex];
                 msg += ", fallback is " + fallbackProc.getInstanceName();
             }
 
@@ -103,8 +103,8 @@ var App = (function () {
 
     // Builds the status message for the specified proc and status
     var fnProcStatusChanged = function (proc, status) {
-        var msg = "Running...";
-        if (status == "finished") {
+        var msg = "running...";
+        if (status == PS.PROC_STATUS_FINISHED) {
             msg = fnGetFinishedMessage(proc);
         }
         proc.container.pnl.setStatus(msg);
@@ -515,27 +515,23 @@ var App = (function () {
             procRunner = null;
         switch (op) {
             case "fallback":
-                procRunner = new FallbackProcRunner({
-                    procList: proclist,
-                    milliseconds: null
+                procRunner = new PS.FallbackProcRunner({
+                    procList: proclist
                 });
                 break;
             case "parallel":
-                procRunner = new ParallelProcRunner({
-                    procList: proclist,
-                    milliseconds: null
+                procRunner = new PS.ParallelProcRunner({
+                    procList: proclist
                 });
                 break;
             case "sequence":
-                procRunner = new SequenceProcRunner({
-                    procList: proclist,
-                    milliseconds: null
+                procRunner = new PS.SequenceProcRunner({
+                    procList: proclist
                 });
                 break;
             case "race":
-                procRunner = new RaceProcRunner({
-                    procList: proclist,
-                    milliseconds: null
+                procRunner = new PS.RaceProcRunner({
+                    procList: proclist
                 });
                 break;
         }
