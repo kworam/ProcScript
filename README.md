@@ -973,6 +973,9 @@ These functions provide access to ProcScript's code coverage statistics.
     PS.cloneProcRegistry()
     PS.codeCoverageToString()
 
+Working with Promises 
+------------------------------
+
 `PS.promiseToRun` takes a deferred, a Proc instance and (optionally) runParams, and returns a promise.
 
 	PS.promiseToRun(deferred, proc, runParams)
@@ -980,6 +983,9 @@ These functions provide access to ProcScript's code coverage statistics.
 `PS.promiseToRun` runs the specified Proc instance and resolves or rejects the deferred when the Proc finishes.  If the Proc  
 succeeds, it resolves the deferred with its parameter object.  If it fails, it rejects the deferred with its failure message.
 
+
+Proc Runners 
+------------------------------
 
 ProcRunners are Adapter Procs that run multiple Proc Instances in various ways.  `PS.ProcList` is 
 a helper class for passing Proc Instances to a ProcRunner.
@@ -995,16 +1001,22 @@ PS.Proc.setTimeout() before running it.  Abort a running ProcRunner by calling P
  
 Here are the names and signatures of the four pre-defined ProcRunners:
 
-	PS.SequenceProcRunner
+PS.SequenceProcRunner
+------------------------------
+
     fnGetSignature: function () {
         return {
             procList: [PS.ProcList]
         };
     }
 
-PS.SequenceProcRunner runs the specified list of Procs in sequence. If any Proc fails, PS.SequenceProcRunner fails.  
+PS.SequenceProcRunner runs the specified list of Procs in sequence. 
+If any Proc fails, PS.SequenceProcRunner fails.  
+Otherwise, PS.SequenceProcRunner succeeds.
 	
-	PS.FallbackProcRunner
+PS.FallbackProcRunner
+------------------------------
+	
     fnGetSignature: function () {
         return {
             procList: [PS.ProcList],
@@ -1012,10 +1024,13 @@ PS.SequenceProcRunner runs the specified list of Procs in sequence. If any Proc 
         };
     }
 
-PS.FallbackProcRunner runs the specified list of Procs in sequence.  If all the Procs fail, PS.FallbackProcRunner fails.  Otherwise,
-PS.FallbackProcRunner returns the index of the first Proc to succeed in 'fallbackIndex' and does not run the remaining Procs.
+PS.FallbackProcRunner runs the specified list of Procs in sequence.  
+If all the Procs fail, PS.FallbackProcRunner fails.  
+Otherwise, PS.FallbackProcRunner returns the index of the first successful Proc in 'fallbackIndex'.
 
-	PS.RaceProcRunner
+PS.RaceProcRunner
+------------------------------
+
     fnGetSignature: function () {
         return {
             procList: [PS.ProcList],
@@ -1023,19 +1038,23 @@ PS.FallbackProcRunner returns the index of the first Proc to succeed in 'fallbac
         };
     }
 
-PS.RaceProcRunner starts all of the Procs in the specified list running simultaneously.  If all the Procs fail, PS.RaceProcRunner 
-fails.  Otherwise, PS.RaceProcRunner returns the index of the first Proc to succeed in 'fallbackIndex'.
+PS.RaceProcRunner starts all of the Procs in the specified list running simultaneously.  
+If all the Procs fail, PS.RaceProcRunner fails.  
+Otherwise, PS.RaceProcRunner returns the index of the first successful Proc in 'fallbackIndex'.
   
 
-	PS.ParallelProcRunner
+PS.ParallelProcRunner
+------------------------------
+
     fnGetSignature: function () {
         return {
             procList: [PS.ProcList]
         };
     }
 	
-PS.ParallelProcRunner starts all of the Procs in the specified list running simultaneously.  If any of the Procs fail, PS.ParallelProcRunner 
-fails.
+PS.ParallelProcRunner starts all of the Procs in the specified list running simultaneously.  
+If any of the Procs fail, PS.ParallelProcRunner fails.
+Otherwise, PS.ParallelProcRunner succeeds.
 
 	
 PS.Proc API
@@ -1151,11 +1170,18 @@ When defining Proc Locals on your Proc Instance, you may use any name other than
 
 				
 	
-A ProcScript Demo 
+ProcScript Demos
 ------------------------------
 
-For a simple demonstration of how to use ProcScript, see the ProcScript demonstration app in the *demo* folder of this repository.  
-The source code is brief and heavily commented.  Reading and running this example is a great way to quickly learn ProcScript.  
+For simple demonstrations of how to use ProcScript, see the ProcScript demo apps in this repository.  The demos
+are brief and heavily commented and provide a great way to quickly learn ProcScript.
 
+*corsDemo* 
+This demo uses ProcScript to send Cross Origin Resource Sharing (CORS) requests to websites.  The heavily commented, brief code
+shows ProcScript making XmlHttpRequests and writing to a WebSQL database. 
+
+*procRunnerDemo* 
+This demo shows Proc Runners controlling multiple Procs running in Sequence, Parallel, Fallback or Race operations.  The 
+attractive, interactive GUI allows full control over duration, timeout and abort and also allows for nesting of Proc Runners.
 
 
