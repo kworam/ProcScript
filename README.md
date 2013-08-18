@@ -1176,11 +1176,13 @@ ProcScript Demos
 For simple demonstrations of how to use ProcScript, see the ProcScript demo apps in this repository.  The demos
 are brief and heavily commented and provide a great way to quickly learn ProcScript.
 
-*corsDemo* 
+corsDemo
+------------------------------
 This demo uses ProcScript to send Cross Origin Resource Sharing (CORS) requests to websites.  The heavily commented, brief code
 shows ProcScript making XmlHttpRequests and writing to a WebSQL database. 
 
-*procRunnerDemo* 
+procRunnerDemo
+------------------------------
 This demo shows Proc Runners controlling multiple Procs running in Sequence, Parallel, Fallback or Race operations.  The 
 attractive, interactive GUI allows full control over duration, timeout and abort and also allows for nesting of Proc Runners.
 
