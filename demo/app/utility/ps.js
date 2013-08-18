@@ -105,24 +105,39 @@
     }
 
     PS.procSucceeded = function (proc) {
-        var ps = proc._procState;
+        var ps = proc._procState,
+            currentBlock = proc._getProcBlocks()[ps.currentBlockIdx];
 
         if (!(proc instanceof PS.Proc)) {
             throw new Error("[PS.procSucceeded] invalid Proc parameter.");
         }
 
         if (!proc._isAdapterProc()) {
-            throw new Error("[PS.procSucceeded] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
+            throw new Error("[PS.procSucceeded] Proc '" + proc._getProcDefName() + "' is not an adapter Proc.");
         }
 
         ps._callbackCount += 1;
         if (ps._callbackCount === 1) {
-            proc._successCallback.call(proc);
+
+            if (proc._determineSucceeded()) {
+                // The Proc's 'in-out' and 'out' parameters passed validation, so it has actually succeeded
+                proc._successCallback.call(proc);
+
+            } else {
+                // The Proc's 'in-out' and 'out' parameters failed validation, so it has actually failed
+                proc._failureCallback.call(proc, ps.err, currentBlock.name, true);
+            }
 
         } else {
-            throw new Error("[PS.procSucceeded] Adapter Proc '" + proc._getProcName() + "' " +
+            // More than one callback received
+            var msg = "[PS.procSucceeded] Adapter Proc '" + proc._getProcDefName() + "' " +
                 "has received " + ps._callbackCount + " callbacks.\n" +
-                "An Adapter Proc should only receive one callback from its blocking function.");
+                "An Adapter Proc should only receive one callback from its blocking function."
+
+            PS._log(msg)
+            if (proc._getMultipleCallbacksAction() === "error") {
+                throw new Error(msg);
+            }
         }
     }
 
@@ -135,7 +150,7 @@
         }
 
         if (!proc._isAdapterProc()) {
-            throw new Error("[PS.procFailed] Proc '" + proc._getProcName() + "' is not an adapter Proc.");
+            throw new Error("[PS.procFailed] Proc '" + proc._getProcDefName() + "' is not an adapter Proc.");
         }
 
         ps._callbackCount += 1;
@@ -143,9 +158,15 @@
             proc._failureCallback.call(proc, err, currentBlock.name, true);
 
         } else {
-            throw new Error("[PS.procFailed] Adapter Proc '" + proc._getProcName() + "' " +
+            // More than one callback received
+            var msg = "[PS.procFailed] Adapter Proc '" + proc._getProcDefName() + "' " +
                 "has received " + ps._callbackCount + " callbacks.\n" +
-                "An Adapter Proc should only receive one callback from its blocking function.");
+                "An Adapter Proc should only receive one callback from its blocking function."
+
+            PS._log(msg)
+            if (proc._getMultipleCallbacksAction() === "error") {
+                throw new Error(msg);
+            }
         }
     }
 
@@ -202,7 +223,9 @@
             fnWhileTest = null,
             fnDoWhileTest = null,
             fnForLoop = null,
-            adapter = false;
+            adapter = false,
+            adapterMultipleCallbacksAction = "error",
+            fnAbortHandler = null;
 
         for (var propName in config) {
             switch (propName) {
@@ -240,7 +263,7 @@
 
                 default:
                     throw new Error("[PS.defineProc] the config object for Proc '" + name +
-                        "' contains the unsupported property name '" + propName + "'.");
+                        "' contains the invalid property name '" + propName + "'.");
             }
         }
 
@@ -352,12 +375,38 @@
             }
         }
 
-        if (typeof adapter !== "boolean") {
-            throw new Error("[PS.defineProc] the 'adapter' property for For Proc '" + name + "' must be true or false.");
+        if (typeof adapter !== "boolean" && typeof adapter !== "object") {
+            throw new Error("[PS.defineProc] the 'adapter' property for For Proc '" + name + "' must be true, false or an object literal.");
 
-        } else {
-            c.adapter = adapter;
         }
+
+        if (typeof adapter === "object") {
+            var adapterObj = adapter;
+            adapter = true;
+
+            for (var adapterPropName in adapterObj) {
+                var propValue = adapterObj[adapterPropName];
+                switch (adapterPropName) {
+                    case "multipleCallbacks":
+                        adapterMultipleCallbacksAction = propValue;
+                        break;
+                    case "fnAbortHandler":
+                        if (typeof propValue !== "function") {
+                            throw new Error("[PS.defineProc] the '" + adapterPropName + "' member of the adapter config object for Proc '" +
+                                name + "' must be a function.");
+                        }
+                        fnAbortHandler = propValue;
+                        break;
+                    default:
+                        throw new Error("[PS.defineProc] the adapter config object for Proc '" + name +
+                            "' contains the invalid property name '" + propName + "'.");
+                }
+            }
+        }
+
+        c.adapter = adapter;
+        c.adapterMultipleCallbacksAction = adapterMultipleCallbacksAction;
+        c.fnAbortHandler = fnAbortHandler;
 
         PS._registerProc(c);
 
@@ -423,7 +472,7 @@
 
 
     PS.Proc = function (paramObj) {
-        return this._ctorInit(paramObj); 
+        return this._ctorInit(paramObj);
     };
 
     var Proc = PS.Proc;
@@ -452,32 +501,34 @@
 
         ps._callbackCount = 0;
 
+        ps.statusChangedListeners = [];
+
         return this;
     },
 
-    Proc.prototype.getParamValue = function (paramName) {
-        var paramObj = this._getParamObj(),
-            signatureObj = this._getSignatureObj(),
-            paramDescriptor = signatureObj[paramName];
+//    Proc.prototype.getParamValue = function (paramName) {
+//        var paramObj = this._getParamObj(),
+//            signatureObj = this._getSignatureObj(),
+//            paramDescriptor = signatureObj[paramName];
 
-        if (typeof paramDescriptor === "undefined") {
-            throw new Error("[PS.Proc.getParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
-        }
+//        if (typeof paramDescriptor === "undefined") {
+//            throw new Error("[PS.Proc.getParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
+//        }
 
-        return paramObj[paramName];
-    };
+//        return paramObj[paramName];
+//    };
 
-    Proc.prototype.setParamValue = function (paramName, val) {
-        var paramObj = this._getParamObj(),
-            signatureObj = this._getSignatureObj(),
-            paramDescriptor = signatureObj[paramName];
+//    Proc.prototype.setParamValue = function (paramName, val) {
+//        var paramObj = this._getParamObj(),
+//            signatureObj = this._getSignatureObj(),
+//            paramDescriptor = signatureObj[paramName];
 
-        if (typeof paramDescriptor === "undefined") {
-            throw new Error("[PS.Proc.setParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
-        }
+//        if (typeof paramDescriptor === "undefined") {
+//            throw new Error("[PS.Proc.setParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
+//        }
 
-        paramObj[paramName] = val;
-    };
+//        paramObj[paramName] = val;
+//    };
 
     Proc.prototype.callStackToString = function () {
         var ps = this._procState;
@@ -524,7 +575,7 @@
         if (runParams !== undefined) {
 
             if (runParams === null || typeof runParams !== "object") {
-                throw new TypeError("[PS.Proc.run]  Proc '" + this._getProcName() +
+                throw new TypeError("[PS.Proc.run]  Proc '" + this._getProcDefName() +
                     "' was passed an invalid 'runParams' object.");
             }
         }
@@ -532,6 +583,8 @@
         this._initProcInstanceToRun(runParams);
 
         PS.ProcRegistry._recordRun(this);
+
+        this.fireStatusChanged("running");
 
         if (this._isEmptyLoop()) {
             // For an empty looping Proc, we skip running the Proc and assume it succeeded.
@@ -556,10 +609,6 @@
     Proc.prototype.setTimeout = function (timeoutMillis) {
         var ps = this._procState;
 
-        if (!this.ready()) {
-            throw new Error("[PS.Proc.setTimeout]  Proc '" + this._getProcName() +
-                "' is running or finished so you cannot set a timeout on it.");
-        }
         if (typeof timeoutMillis !== "number") {
             throw new Error("[PS.Proc.setTimeout]  timeoutMillis must be a number.");
         }
@@ -570,10 +619,15 @@
     };
 
     Proc.prototype.getTimeout = function () {
-        var ps = this._procState;
-
-        return ps.timeoutMillis;
+        return this._procState.timeoutMillis;
     };
+
+    Proc.prototype.setTimeoutReason = function (reason) {
+        this._procState.timeoutReason = reason;
+    }
+    Proc.prototype.getTimeoutReason = function () {
+        return this._procState.timeoutReason;
+    }
 
     Proc.prototype.abort = function (reason) {
         var ps = this._procState,
@@ -581,48 +635,56 @@
 
         if (thread) {
             if (!reason) {
-                reason = "Proc aborted";
+                reason = this.getInstanceName() + " aborted";
             }
 
             thread.abort(reason);
 
-            if (this.fnAbortHandler) {
-                this.fnAbortHandler();
+            var fnAbortHandler = this._getAbortHandler();
+            if (fnAbortHandler) {
+                fnAbortHandler.apply(this);
             }
         }
 
         return this;
     };
 
-    Proc.prototype.setAbortHandler = function (fnAbortHandler) {
-        if (typeof fnAbortHandler !== "function") {
-            throw new Error("[PS.Proc.setAbortHandler]  you must pass a function to setAbortHandler.");
+    Proc.prototype.addStatusChangedListener = function (fnStatusChangedListener) {
+        // add a status changed listener for this Proc instance
+        if (typeof fnStatusChangedListener !== "function") {
+            throw new Error("[PS.Proc.addStatusChangedListener]  you must pass a function to addStatusChangedListener.");
         }
+        this._procState.statusChangedListeners.push(fnStatusChangedListener);
+    }
 
-        this.fnAbortHandler = fnAbortHandler;
+    Proc.prototype.fireStatusChanged = function (status) {
+        var ps = this._procState,
+            statusChangedListeners = ps.statusChangedListeners;
+
+        for (var i = 0, ln = statusChangedListeners.length; i < ln; i++) {
+            statusChangedListeners[i](this, status);
+        }
+    }
+
+    Proc.prototype._getAbortHandler = function () {
+        // otherwise, return the default abort handler for this Proc
+        return this.constructor.fnAbortHandler;
     }
 
 
-    Proc.prototype.ready = function () {
-        var ps = this._procState,
-            thread = ps.thread;
+    Proc.prototype.setInstanceName = function (name) {
+        this._procState.instanceName = name;
+    }
 
-        return !thread || thread.ready();
-    };
+    Proc.prototype.getInstanceName = function () {
+        var ps = this._procState;
 
-    Proc.prototype.running = function () {
-        var ps = this._procState,
-            thread = ps.thread;
+        if (ps.instanceName) {
+            return ps.instanceName;
+        }
 
-        return thread && thread.running();
-    };
-
-    Proc.prototype.finished = function () {
-        var ps = this._procState,
-            thread = ps.thread;
-
-        return thread && thread.finished();
-    };
+        return this._getProcDefName() + ": threadId: " + this.getThreadId();
+    }
 
     Proc.prototype.aborted = function () {
         var ps = this._procState,
@@ -651,7 +713,12 @@
             thread = ps.thread;
 
         if (ps.err) {
-            return ps.err;
+            if (ps.err.message) {
+                return ps.err.message;
+
+            } else {
+                return ps.err.toString();
+            }
 
         } else if (thread && thread.getAbortReason()) {
             return thread.getAbortReason();
@@ -666,6 +733,10 @@
 
     Proc.prototype._isAdapterProc = function () {
         return this.constructor.adapter;
+    };
+
+    Proc.prototype._getMultipleCallbacksAction = function () {
+        return this.constructor.adapterMultipleCallbacksAction;
     };
 
     Proc.prototype._isEmptyLoop = function () {
@@ -684,7 +755,7 @@
         if (fnWhileTest) {
             var whileTestResult = fnWhileTest.call(this);
             if (typeof whileTestResult !== "boolean") {
-                throw new Error("[PS.Proc.run]  Proc '" + this._getProcName() +
+                throw new Error("[PS.Proc.run]  Proc '" + this._getProcDefName() +
                     "' has a fnWhileTest function that does not return a boolean result!");
             }
 
@@ -705,7 +776,7 @@
             // Then, run the beforeIteration test
             var forLoopBeforeResult = this._getForLoopBeforeIteration().call(this);
             if (typeof forLoopBeforeResult !== "boolean") {
-                throw new Error("[PS.Proc.run]  Proc '" + this._getProcName() +
+                throw new Error("[PS.Proc.run]  Proc '" + this._getProcDefName() +
                     "' has a 'beforeIteration' function that does not return a boolean result!");
             }
             var emptyFor = !forLoopBeforeResult;
@@ -724,7 +795,7 @@
     Proc.prototype._loopContinues = function (ps) {
 
         if (!this._isLoopingProc()) {
-            // This is not a looping Proc
+            // This is not a looping Proc so return false
             return false;
         }
 
@@ -790,7 +861,7 @@
         if (f) {
             var arr = f.call(this);
             if (!(arr instanceof Array)) {
-                throw new Error("[PS.Proc._getForEachArray] the fnGetForEachArray function for Proc '" + this._getProcName() +
+                throw new Error("[PS.Proc._getForEachArray] the fnGetForEachArray function for Proc '" + this._getProcDefName() +
                     "' does not return an array!");
             }
             return arr;
@@ -803,7 +874,6 @@
         if (typeof this.constructor.fnWhileTest !== "undefined") {
             return this.constructor.fnWhileTest;
         }
-
         return null;
     };
 
@@ -811,7 +881,6 @@
         if (typeof this.constructor.fnDoWhileTest !== "undefined") {
             return this.constructor.fnDoWhileTest;
         }
-
         return null;
     };
 
@@ -820,7 +889,6 @@
         if (typeof this.constructor.fnForLoopInit !== "undefined") {
             return this.constructor.fnForLoopInit;
         }
-
         return null;
     };
 
@@ -829,7 +897,6 @@
         if (typeof this.constructor.fnBeforeIteration !== "undefined") {
             return this.constructor.fnBeforeIteration;
         }
-
         return null;
     };
 
@@ -837,7 +904,6 @@
         if (typeof this.constructor.fnAfterIteration !== "undefined") {
             return this.constructor.fnAfterIteration;
         }
-
         return null;
     };
 
@@ -860,7 +926,6 @@
         if (typeof this.constructor.procCatchBlockIdx !== "undefined") {
             return this.constructor.procCatchBlockIdx;
         }
-
         return null;
     };
 
@@ -868,7 +933,6 @@
         if (typeof this.constructor.procFinallyBlockIdx !== "undefined") {
             return this.constructor.procFinallyBlockIdx;
         }
-
         return null;
     };
 
@@ -968,23 +1032,9 @@
                     clearTimeout(ps.timeoutID);
                 }
 
-                //                if (ps.failureSourceBlockIdx >= 0 && !catchIdx) {
-                //                    var blocks = this._getProcBlocks(),
-                //                        failureBlock = blocks[ps.failureSourceBlockIdx];
-
-                //                    // an unhandled exception occurred in one of the Proc's block functions
-                //                    // and there is no caller to pass it to.
-
-                //                    var msg = "Proc '" + this._getProcName() + "', Block '" + failureBlock.name + "':  An unhandled failure occurred.  See console for details.";
-                //                    PS._log(msg);
-                //                    alert(msg);
-                //                }
-
                 this._determineSucceeded();
 
-                if (ps.fnFinished) {
-                    ps.fnFinished(this);
-                }
+                this.fireStatusChanged("finished");
 
                 if (ps.deferred) {
                     if (this.succeeded()) {
@@ -1045,7 +1095,6 @@
             if (!PS._fireProcException(err, errorMessage)) {
                 PS._log("ProcScript Proc Failure:");
                 PS._log("Error: " + err);
-
                 PS._log("Error Details: " + errorMessage);
             }
         }
@@ -1096,7 +1145,7 @@
             signatureObject = fnProcSig.call(this);
             if (!signatureObject || typeof signatureObject !== "object") {
                 // There is a signature function but it does not return a signature object
-                throw new Error("[PS.Proc._getSignatureObj]  Proc '" + this._getProcName() +
+                throw new Error("[PS.Proc._getSignatureObj]  Proc '" + this._getProcDefName() +
                     "' has a signature function that does not return a signature object!");
             }
         }
@@ -1104,7 +1153,7 @@
         return signatureObject;
     };
 
-    Proc.prototype._getProcName = function () {
+    Proc.prototype._getProcDefName = function () {
         var procName = this.constructor.procName;
 
         return procName;
@@ -1127,50 +1176,45 @@
             paramObj = this._getParamObj(),
             caller = this._getCaller(),
             timeoutMillis = runParams.timeout,
-            fnFinished = runParams.fnFinished,
+            fnStatusChanged = runParams.fnStatusChanged,
             deferred = runParams.deferred;
 
         if (timeoutMillis === undefined || timeoutMillis === null) {
-            timeoutMillis = 0
+            var existingTimeout = this.getTimeout();
+            timeoutMillis = existingTimeout ? existingTimeout : 0;
         }
 
         this.setTimeout(timeoutMillis);
 
         function timeoutAbort() {
-            proc.abort("Proc " + proc._getProcName() + " timed out after " + proc.getTimeout() + " milliseconds.");
+            proc.setTimeoutReason(proc.getTimeout() + " ms timeout");
+            proc.abort(proc.getTimeoutReason());
         }
 
         if (this.getTimeout() > 0) {
             ps.timeoutID = setTimeout(timeoutAbort, this.getTimeout());
         }
 
-
-        if (fnFinished !== undefined && typeof fnFinished !== "function") {
-            throw new Error("Invalid 'fnFinished' passed to Proc " + this._getProcName());
+        if (fnStatusChanged) {
+            this.addStatusChangedListener(fnStatusChanged);
         }
-        ps.fnFinished = fnFinished;
 
 
         if (deferred !== undefined) {
             if (typeof deferred.reject !== "function") {
-                throw new Error("The deferred object passed to Proc " + this._getProcName() + " does not have a 'reject' function.");
+                throw new Error("The deferred object passed to Proc " + this._getProcDefName() + " does not have a 'reject' function.");
 
             } else if (typeof deferred.resolve !== "function") {
-                throw new Error("The deferred object passed to Proc " + this._getProcName() + " does not have a 'resolve' function.");
+                throw new Error("The deferred object passed to Proc " + this._getProcDefName() + " does not have a 'resolve' function.");
 
             } else if (typeof deferred.promise !== "function" && typeof deferred.promise !== "object") {
-                throw new Error("The deferred object passed to Proc " + this._getProcName() + " does not have a 'promise' function or object.");
+                throw new Error("The deferred object passed to Proc " + this._getProcDefName() + " does not have a 'promise' function or object.");
             }
         }
         ps.deferred = deferred;
 
         // NOTE: make sure to verify the thread status before initializing the Proc state
         if (!caller || !caller._procState.thread) {
-            if (this.running() || this.finished()) {
-
-                throw new Error("Proc " + this._getProcName() + " is running or finished, you cannot re-run it.");
-            }
-
             // create a new thread for this Proc
             PS._createThread(this);
 
@@ -1189,7 +1233,7 @@
         // Validate the paramObj against the signature
         var ps = this._procState,
             paramObj = this._getParamObj(),
-            procName = this._getProcName(),
+            procName = this._getProcDefName(),
             signatureObj = this._getSignatureObj();
 
         if (!signatureObj || typeof signatureObj !== "object") {
@@ -1210,7 +1254,7 @@
                 var procCaller = ps._caller,
                     callerCurrentBlock = procCaller._getProcBlocks()[procCaller._procState.currentBlockIdx];
 
-                callerName = procCaller._getProcName() + "." + callerCurrentBlock.name;
+                callerName = procCaller._getProcDefName() + "." + callerCurrentBlock.name;
             }
         }
 
@@ -1285,7 +1329,7 @@
         paramDir = paramDir.toLowerCase();
         if (paramDir !== 'in' && paramDir !== 'out' && paramDir !== 'in-out') {
             var errMsg = "[PS.Proc._typeCheckParameter]  The signature of Proc '" + procName +
-                "' has an unsupported direction setting of '" + paramDir + "' for parameter '" + paramName + "'.\n";
+                "' has an invalid direction setting of '" + paramDir + "' for parameter '" + paramName + "'.\n";
 
             throw new Error(errMsg);
         }
@@ -1407,7 +1451,7 @@
         if (currentBlock._finally && (
             blockReturnValue == PS.RETURN || blockReturnValue == PS.BREAK || blockReturnValue == PS.CONTINUE)) {
             throw new Error(
-                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcDefName() +
                     "' returned PS.RETURN, PS.BREAK or PS.CONTINUE from its _finally block:  this is not allowed."
                 );
         }
@@ -1415,7 +1459,7 @@
         if (currentBlock._catch) {
             if (blockReturnValue == PS.BREAK || blockReturnValue == PS.CONTINUE) {
                 throw new Error(
-                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcDefName() +
                         "' returned PS.BREAK or PS.CONTINUE from its _catch block:  this is not allowed."
                     );
 
@@ -1429,7 +1473,7 @@
         if (blockReturnValue == PS.BREAK || blockReturnValue == PS.CONTINUE) {
             if (!this._isLoopingProc()) {
                 throw new Error(
-                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcDefName() +
                         "' returned PS.BREAK or PS.CONTINUE from block '" + currentBlock.name + "'" +
                         " but it is not a looping Proc."
                     );
@@ -1469,7 +1513,7 @@
 
             if (!this._isAdapterProc()) {
                 throw new Error(
-                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+                    "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcDefName() +
                         "' returned PS.WAIT_FOR_CALLBACK from block '" + currentBlock.name + "'" +
                         " but it is not an adapter Proc."
                     );
@@ -1477,7 +1521,7 @@
 
         } else {
             throw new Error(
-            "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcName() +
+            "[PS.Proc._processBlockReturnValue]  Proc '" + this._getProcDefName() +
                 "' got an invalid return value from block '" + currentBlock.name + "'!" +
                 " value=" + blockReturnValue
             );
@@ -1487,7 +1531,7 @@
     PS._getTraceDispatchProcKey = function (proc) {
         var ps = proc._procState;
 
-        return ps._traceDispatchUniqueId + "_" + proc._getProcName();
+        return ps._traceDispatchUniqueId + "_" + proc._getProcDefName();
     }
 
     PS._traceDispatchUniqueIdCounter = 0;
@@ -1548,7 +1592,7 @@
 
     PS._getErrorMessageForException = function (err, blockName, proc) {
         var errorMessage =
-            "Unhandled exception in " + proc._getProcName() + "." + blockName;
+            "Unhandled exception in " + proc._getProcDefName() + "." + blockName;
 
         errorMessage += "\n\n";
         if (typeof err !== "undefined") {
@@ -1809,23 +1853,16 @@
         this._abortReason = reason;
     }
 
-    PS.Thread.prototype.ready = function () {
-        return this._status === PS.THREAD_STATUS_READY;
-    }
-
-    PS.Thread.prototype.running = function () {
-        return this._status === PS.THREAD_STATUS_RUNNING;
-    }
-
-    PS.Thread.prototype.finished = function () {
-        return this._status === PS.THREAD_STATUS_FINISHED;
-    }
-
     Proc.prototype._determineSucceeded = function () {
         var ps = this._procState,
             finallyIdx = this._getFinallyBlockIdx(),
             catchIdx = this._getCatchBlockIdx(),
             success = false;
+
+        // If we have already determined success, return it.
+        if (typeof ps._succeeded !== "undefined") {
+            return ps._succeeded;
+        }
 
         try {
             this._copyAndValidateOutParams();
@@ -1835,30 +1872,20 @@
             ps._invalidOutParams = true;
         }
 
-        if (ps._invalidOutParams) {
-            // an 'in-out' or 'out' parameter failed validation
+        if (this.aborted() || ps._invalidOutParams) {
+            // the Proc was aborted or an 'in-out' or 'out' parameter failed validation
             success = false;
 
         } else if (ps.failureSourceBlockIdx >= 0) {
 
             // an unhandled exception occurred in one of the Proc's block functions
-
-            if (ps.failureSourceBlockIdx == finallyIdx || ps.failureSourceBlockIdx == catchIdx) {
-                // the unhandled exception occurred in the _catch or the _finally block, 
-                // so re-throw it to the caller
+            if (catchIdx === null || ps.failureSourceBlockIdx == finallyIdx || ps.failureSourceBlockIdx == catchIdx) {
+                // this Proc has no catch handler or
+                // the unhandled exception occurred in the _catch or the _finally block
                 success = false;
-            }
-
-            else if (catchIdx === null) {
-                // this Proc has no catch block function 
-                // call the failure callback of the caller
-                success = false;
-
 
             } else {
-                // this Proc has a catch block function
-                // we have therefore successfully handled (absorbed) the exception
-                // call the success callback of the caller
+                // this Proc has a catch block function, we have successfully handled (absorbed) the exception
                 success = true;
             }
 
@@ -1878,7 +1905,6 @@
         if (typeof ps._succeeded === "undefined") {
             return false;
         }
-
         return ps._succeeded;
     }
 
@@ -2036,17 +2062,17 @@
     };
 
     PS.ProcRegistry._recordRun = function (proc, currentBlock, blockReturnValue) {
-        var procRecord = PS.ProcRegistry._procsByName[proc._getProcName()];
+        var procRecord = PS.ProcRegistry._procsByName[proc._getProcDefName()];
 
         if (!procRecord) {
-            throw new Error("[PS.ProcRegistry._processBlockReturnValue] no record found for Proc '" + proc._getProcName() + "'!");
+            throw new Error("[PS.ProcRegistry._processBlockReturnValue] no record found for Proc '" + proc._getProcDefName() + "'!");
         }
 
         procRecord.runCount++;
     }
 
     PS.ProcRegistry._processBlockReturnValue = function (proc, currentBlock, blockReturnValue) {
-        var procRecord = PS.ProcRegistry._procsByName[proc._getProcName()];
+        var procRecord = PS.ProcRegistry._procsByName[proc._getProcDefName()];
 
         if (!procRecord) {
             throw new Error("[PS.ProcRegistry._processBlockReturnValue] no record found for Proc '" + proc._getProcName() + "'!");
@@ -2057,7 +2083,7 @@
 
         var rvPropName = blockReturnValue;
         if (blockReturnValue instanceof PS.Proc) {
-            var rvPropName = blockReturnValue._getProcName();
+            rvPropName = blockReturnValue._getProcDefName();
         }
 
         blockRecord.blockReturnValues[rvPropName] = true;
@@ -2083,4 +2109,291 @@
     // The ProcScript module exposes the 'PS' global object
     return PS;
 });
+
+
+var SequenceProcRunner = PS.defineProc({
+
+    name: "SequenceProcRunner",
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList],
+            milliseconds: ["number"]
+        };
+    },
+    adapter: {
+        fnAbortHandler: fnAbortProcRunner
+    },
+    blocks: [
+	function runSequence() {
+	    var me = this,
+			arrProcs = me.procList.getArray(),
+			runParams = null,
+			nextProc = null;
+
+	    me.currProcIdx = 0;
+	    me.runnerDone = false;
+
+	    // Whenever the status of a Proc finishes, ProcScript calls fnStatusChanged
+	    function fnStatusChanged(seqProc, status) {
+	        if (status !== "finished" || me.runnerDone) {
+	            return;
+	        }
+
+	        me.currProcIdx += 1;
+	        if (seqProc.succeeded()) {
+	            if (me.currProcIdx === arrProcs.length) {
+	                // The last Proc succeeded, so the sequence succeeds with its parameter object
+	                me.runnerDone = true;
+	                PS.procSucceeded(me);
+
+	            } else {
+	                // Run the next Proc in the sequence
+	                nextProc = arrProcs[me.currProcIdx],
+					runParams = {
+					    timeout: nextProc.getTimeout() || me.milliseconds,
+					    fnStatusChanged: fnStatusChanged
+					};
+	                nextProc.run(runParams);
+	            }
+
+	        } else {
+	            // The current Proc failed, so the sequence fails with its failure reason
+	            me.runnerDone = true;
+	            PS.procFailed(me, seqProc.getFailure());
+	        }
+	    }
+
+	    // Run the first Proc in the sequence
+	    nextProc = arrProcs[me.currProcIdx],
+		runParams = {
+		    timeout: nextProc.getTimeout() || me.milliseconds,
+		    fnStatusChanged: fnStatusChanged
+		};
+	    nextProc.run(runParams);
+
+	    return PS.WAIT_FOR_CALLBACK;
+	} ]
+
+});
+
+
+
+var FallbackProcRunner = PS.defineProc({
+
+    name: "FallbackProcRunner",
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList],
+            milliseconds: ["number"],
+            fallbackIndex: ["number", "out"]
+        };
+    },
+    adapter: {
+        fnAbortHandler: fnAbortProcRunner
+    },
+    blocks: [
+	function runFallback() {
+	    var me = this,
+			arrProcs = me.procList.getArray(),
+			runParams = null,
+			nextProc = null;
+
+	    me.currProcIdx = 0;
+	    me.fallbackIndex = 0;
+	    me.runnerDone = false;
+
+	    function fnStatusChanged(fallbackProc, status) {
+	        if (status !== "finished" || me.runnerDone) {
+	            return;
+	        }
+
+	        me.currProcIdx += 1;
+	        if (fallbackProc.succeeded()) {
+	            // The current Proc succeeded, so the fallback succeeds with its parameter object
+	            me.fallbackIndex = me.currProcIdx - 1;
+	            me.runnerDone = true;
+	            PS.procSucceeded(me);
+
+	        } else {
+	            // The current Proc failed
+	            if (me.currProcIdx === arrProcs.length) {
+	                // This is the last Proc, so the fallback fails with the its failure reason
+	                me.runnerDone = true;
+	                PS.procFailed(me, fallbackProc.getFailure());
+
+	            } else {
+	                // Run the next Proc in the fallback
+	                nextProc = arrProcs[me.currProcIdx],
+					runParams = {
+					    timeout: nextProc.getTimeout() || me.milliseconds,
+					    fnStatusChanged: fnStatusChanged
+					};
+	                nextProc.run(runParams);
+	            }
+	        }
+	    }
+
+	    // Run the first Proc in the fallback
+	    nextProc = arrProcs[me.currProcIdx],
+		runParams = {
+		    timeout: nextProc.getTimeout() || me.milliseconds,
+		    fnStatusChanged: fnStatusChanged
+		};
+	    nextProc.run(runParams);
+
+	    return PS.WAIT_FOR_CALLBACK;
+	} ]
+
+});
+
+
+
+
+var RaceProcRunner = PS.defineProc({
+
+    name: "RaceProcRunner",
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList],
+            milliseconds: ["number"],
+            winnerIndex: ["number", "out"]
+        };
+    },
+    adapter: {
+        fnAbortHandler: fnAbortProcRunner
+    },
+    blocks: [
+	function runRace() {
+	    var me = this,
+			arrProcs = me.procList.getArray(),
+			runParams = null,
+			nextProc = null;
+
+	    me.numRemaining = arrProcs.length;
+	    me.winnerIndex = null;
+	    me.runnerDone = false;
+
+	    function fnStatusChanged (racerProc, status) {
+	        if (status !== "finished" || me.runnerDone) {
+	            // the racerProc is not finished or the race is already over 
+	            return;
+	        }
+
+	        me.numRemaining -= 1;
+
+	        if (racerProc.succeeded()) {
+	            me.runnerDone = true;
+	            me.winnerIndex = racerProc.racerIdx;
+
+	            // Abort the losers
+	            for (var i = 0; i < arrProcs.length; i++) {
+	                arrProcs[i].abort();
+	            }
+
+	            // The race succeeds with the winner's parameter object
+	            PS.procSucceeded(me);
+
+	        } else if (me.numRemaining === 0) {
+	            // All Procs failed, so the race fails with the last failure reason
+	            me.runnerDone = true;
+	            PS.procFailed(me, racerProc.getFailure());
+	        }
+	    }
+
+	    // Run all Procs in the race
+	    for (var i = 0; i < arrProcs.length; i++) {
+	        nextProc = arrProcs[i];
+	        nextProc.racerIdx = i;
+	        runParams = {
+	            timeout: nextProc.getTimeout() || me.milliseconds,
+	            fnStatusChanged: fnStatusChanged
+	        };
+	        nextProc.run(runParams);
+	    }
+
+	    return PS.WAIT_FOR_CALLBACK;
+	} ]
+
+});
+
+
+
+var ParallelProcRunner = PS.defineProc({
+
+    name: "ParallelProcRunner",
+    fnGetSignature: function () {
+        return {
+            procList: [PS.ProcList],
+            milliseconds: ["number"]
+        };
+    },
+    adapter: {
+        fnAbortHandler: fnAbortProcRunner
+    },
+    blocks: [
+	function runParallel() {
+	    var me = this,
+			arrProcs = me.procList.getArray(),
+			runParams = null,
+			nextProc = null;
+
+	    me.numRemaining = arrProcs.length;
+	    me.runnerDone = false;
+
+	    function fnStatusChanged(parallelProc, status) {
+	        if (status !== "finished" || me.runnerDone) {
+	            return;
+	        }
+
+	        me.numRemaining -= 1;
+
+	        if (parallelProc.failed()) {
+	            // a Proc failed
+	            me.runnerDone = true;
+
+	            // abort any other Procs that are still running
+	            for (var i = 0; i < arrProcs.length; i++) {
+	                arrProcs[i].abort();
+	            }
+
+	            // ParallelProcRunner fails with this Proc's failure reason
+	            PS.procFailed(me, parallelProc.getFailure());
+
+	        } else if (me.numRemaining === 0) {
+	            me.runnerDone = true;
+	            PS.procSucceeded(me);
+	        }
+	    }
+
+	    // run all the Procs in the array
+	    for (var i = 0; i < arrProcs.length; i++) {
+	        nextProc = arrProcs[i],
+			runParams = {
+			    timeout: nextProc.getTimeout() || me.milliseconds,
+			    fnStatusChanged: fnStatusChanged
+			};
+	        nextProc.run(runParams);
+	    }
+
+	    return PS.WAIT_FOR_CALLBACK;
+	} ]
+
+});
+
+function fnAbortProcRunner() {
+    if (this.runnerDone) {
+        // Proc is done so it cannot be aborted
+        return;
+    }
+
+    this.runnerDone = true;
+
+    var arrProcs = this.procList.getArray();
+    for (var i = 0; i < arrProcs.length; i++) {
+        arrProcs[i].abort();
+    }
+
+    var failureReason = this.getFailure();
+    PS.procFailed(this, failureReason ?  failureReason : "ProcRunner aborted");
+};
 
