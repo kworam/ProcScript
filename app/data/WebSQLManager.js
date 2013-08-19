@@ -26,11 +26,11 @@ var WebSQLManager = (function () {
 
     // Execute preparedStmt using paramArray.
 
-    // WebSQLManager.executeSQL_Proc is an Adapter Proc for WebSQL
+    // WebSQLManager.executeSQLProc is an Adapter Proc for WebSQL
 
-    WebSQLManager.executeSQL_Proc = PS.defineProc({
+    WebSQLManager.executeSQLProc = PS.defineProc({
 
-        name: "WebSQLManager.executeSQL_Proc",
+        name: "WebSQLManager.executeSQLProc",
         fnGetSignature: function () {
             return {
                 sql: ["string"],
@@ -56,7 +56,7 @@ var WebSQLManager = (function () {
                             PS.procSucceeded(proc);
                         },
                         function executeSqlFailure(tx, err) {
-                            var procErrorMessage = "[WebSQLManager.executeSQL_Proc.executeSqlFailure]\n" +
+                            var procErrorMessage = "[WebSQLManager.executeSQLProc.executeSqlFailure]\n" +
                                 "error: " + err.message + "\n" +
                                 "sql: " + proc.sql;
 
@@ -67,7 +67,7 @@ var WebSQLManager = (function () {
 
                     }, 
                 function transactionFailure(err) {
-                    var procErrorMessage = "[WebSQLManager.executeSQL_Proc.transactionFailure]\n" +
+                    var procErrorMessage = "[WebSQLManager.executeSQLProc.transactionFailure]\n" +
                         "error: " + err.message + "\n" +
                         "sql: " + proc.sql;
 

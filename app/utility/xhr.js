@@ -25,10 +25,10 @@ var XHR = (function () {
 
     // Make the actual CORS request.
 
-    // XHR.makeCorsRequest_Proc is an Adapter Proc for XmlHttpRequest
+    // XHR.makeCorsRequestProc is an Adapter Proc for XmlHttpRequest
 
-    XHR.makeCorsRequest_Proc = PS.defineProc({
-        name: "XHR.makeCorsRequest_Proc",
+    XHR.makeCorsRequestProc = PS.defineProc({
+        name: "XHR.makeCorsRequestProc",
         fnGetSignature: function () {
             return {
                 method: ["string"],
