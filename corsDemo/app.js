@@ -38,9 +38,9 @@ var App = (function () {
             });
         },
         function sendCorsRequest() {
-            // XHR.makeCorsRequest_Proc is an Adapter Proc for a blocking XmlHttpRequest
+            // XHR.makeCorsRequestProc is an Adapter Proc for a blocking XmlHttpRequest
             // This blocking XmlHttpRequest notifies ProcScript of success or failure via its callbacks.
-            return new XHR.makeCorsRequest_Proc({
+            return new XHR.makeCorsRequestProc({
                 method: this.httpMethodValue,
                 url: this.txtURLValue
             });
@@ -62,8 +62,8 @@ var App = (function () {
                 ")";
 
             if (WebSQLManager.getDb()) {
-                // WebSQLManager.executeSQL_Proc is an Adapter Proc for WebSQL
-                return new WebSQLManager.executeSQL_Proc({
+                // WebSQLManager.executeSQLProc is an Adapter Proc for WebSQL
+                return new WebSQLManager.executeSQLProc({
                     sql: cmd
                 });
             }
@@ -85,7 +85,7 @@ var App = (function () {
                 ")";
 
             if (WebSQLManager.getDb()) {
-                return new WebSQLManager.executeSQL_Proc({
+                return new WebSQLManager.executeSQLProc({
                     sql: cmd
                 });
             }
@@ -139,7 +139,7 @@ var App = (function () {
             var strQuery = "SELECT NAME FROM sqlite_master WHERE type='table' and name = '" + this.testTableName + "'";
 
             // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
-            return new WebSQLManager.executeSQL_Proc({
+            return new WebSQLManager.executeSQLProc({
                 sql: strQuery
             });
             return PS.WAIT_FOR_CALLBACK;
@@ -157,13 +157,13 @@ var App = (function () {
 
             // If the test table does not exist, we 'fall through' to here.
             // WebSQLManager.executeSQL is a ProcScript-compliant blocking function.
-            WebSQLManager.executeSQL(this, "CREATE TABLE History (" +
-                "Id integer not null PRIMARY KEY, " +
-                "Result string not null, " +
-                "DateTime string not null" +
-                ")"
-                );
-            return PS.WAIT_FOR_CALLBACK;
+            return new WebSQLManager.executeSQLProc({
+                sql: "CREATE TABLE History (" +
+                    "Id integer not null PRIMARY KEY, " +
+                    "Result string not null, " +
+                    "DateTime string not null" +
+                    ")"
+            });
         },
         function finalize(resultSet) {
             // Set the value of the 'tablesCreated' output parameter via its Proc local.
