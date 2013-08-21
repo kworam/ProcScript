@@ -40,6 +40,23 @@ ProcScript features
 * Works with Promises
 * Perform Sequence, Parallel, Fallback and Race operations with timeout and abort.
 
+	
+ProcScript Demos
+------------------------------
+
+Before we dive in, let me mention the ProcScript demos.  These simple demos are brief and heavily commented and provide a great way to quickly learn ProcScript.
+
+corsDemo
+------------------------------
+This demo sends Cross Origin Resource Sharing (CORS) requests to websites and shows how to use ProcScript 
+to make XmlHttpRequests and write to a WebSQL database. 
+
+procRunnerDemo
+------------------------------
+This demo shows how to run multiple Procs in Sequence, Parallel, Fallback or Race operations with Proc Runners.  The 
+attractive, interactive GUI gives you full control over duration, timeout and abort and allows arbitrary nesting of Proc Runners.
+
+
 
 Procs
 -------
@@ -88,9 +105,9 @@ For example, the following example defines a simple Proc called "MyFirstProc":
     });
 
 The proc config specifies that *MyFirstProc* takes one *string* input (`input1`) and produces one *Array* output (`output1`).  It has two blocks of code: 
-the first block writes the value of `input1` to the console and the second block sets the value of `output1` to "Hello World!".
+the first block writes the value of `input1` to the console and the second sets the value of `output1` to an array containing "Hello World!".
 
-`PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  Use the constructor function 
+`PS.defineProc()` registers *MyFirstProc* with the ProcScript framework and returns the MyFirstProc constructor function.  Use the constructor  
 to create and run instances of *MyFirstProc* like this:
 
 	var procInstance = new MyFirstProc({input1: "Hi Mom!"});
@@ -104,10 +121,10 @@ The `fnGetSignature` member of the proc config is a function that returns an obj
 The *signature object* defines the input and output parameters of the Proc and has this structure:
 
 	{
-	parameterName1: [ paramType, paramDir ],
-	parameterName2: [ paramType, paramDir ],
+	paramName1: [ paramType, paramDir ],
+	paramName2: [ paramType, paramDir ],
 	...
-	parameterNameN: [ paramType, paramDir ]
+	paramNameN: [ paramType, paramDir ]
 	}
 	
 `paramType`
@@ -118,7 +135,7 @@ The following `paramType` values are allowed:
 	The parameter value must be a JavaScript boolean, number, string or function value.
 	
 *	*class constructor function*				
-	The object parameter value must be an `instanceof` the class.
+	The parameter value must be an `instanceof` the class.
 	
 *	null        	
 	The parameter value may be any type.
@@ -145,14 +162,14 @@ The following `paramDir` values are allowed:
 
 Enforcing the signature
 ------------------------------------
-Notice that the `MyFirstProc` constructor function takes an object literal called a *parameter object* as input:
+Notice that the `MyFirstProc` constructor takes an object literal input called a *parameter object*:
 
 	var procInstance = new MyFirstProc({input1: "Hi Mom!"});
 
-When you create a Proc instance, ProcScript checks the parameter object against the signature object.  If it does not contain a value of the right type 
-for each "in" and "in-out" parameter, ProcScript throws an error.  
+When you create a Proc instance, ProcScript checks the parameter object against the signature object.  If the parameter object does not contain 
+a value of the right type for each "in" and "in-out" parameter, ProcScript throws an error.  
 
-Likewise, ProcScript checks the parameter object against the signature just before a Proc returns to its caller. If it 
+Likewise, ProcScript checks the parameter object against the signature just before a Proc returns to its caller. If the parameter object 
 does not contain a value of the right type for each "in-out" and "out" parameter, ProcScript throws an error.
 
 
@@ -172,9 +189,7 @@ This works for core JavaScript classes (like Date or Array) but also for user-de
 		return "{" + this.x + "," + this.y + "}";
 	}
 
-
 You can write a Proc that inputs or outputs a `Point` object like this:
-
 
 	var PointProc = PS.defineProc({
 
@@ -225,7 +240,7 @@ shows this with the "in" parameter `input1`:
             return PS.NEXT;
         }
 
-To set an "in-out" or "out" parameter, just set a Proc local with parameter's name to the desired value.  `blockFunction2` of `MyFirstProc` 
+To set an "in-out" or "out" parameter, just set a Proc local with the parameter's name to the desired value.  `blockFunction2` of `MyFirstProc` 
 shows this with "out" parameter `output1`:
 
         function blockFunction2() {
@@ -289,8 +304,7 @@ Here is a simple example:
     });
 
 				
-If a block function returns a Proc instance, ProcScript runs it and passes its parameter object to the next block function.  In
-`ProcCallsProc`, `blockFunction2` receives the parameter object from `MyFirstProc` in variable `paramObj`.
+In `ProcCallsProc`, `blockFunction2` receives the parameter object from `MyFirstProc` in variable `paramObj`.
 
 Running `ProcCallsProc` like this:
 	
@@ -335,7 +349,7 @@ in the Proc call stack is of the form:
 	Proc Name.Block Function Name
 
 In the example above, block function `blockFunction1` in Proc `ProcCallsProc` called Proc `MyFirstProc`.  The breakpoint or exception occured in 
-the `blockFunction1` of `MyFirstProc`.
+`blockFunction1` of `MyFirstProc`.
 
 
 To dump the call stacks of all active ProcScript threads, use this function:
@@ -1149,9 +1163,9 @@ You can register for status change events from a Proc instance using this functi
 
 where `fnProcStatusChanged` is a function like this:
 
-    var fnStatusChangedListener = function (proc, status) { ... }
+    fnStatusChangedListener = function (proc, status) { ... }
 
-and 
+where 
 
 `proc`is the Proc whose status has changed and 
 `status` is one of the following string values:  
@@ -1170,21 +1184,3 @@ When defining Proc Locals on your Proc Instance, you may use any name other than
 	
 
 				
-	
-ProcScript Demos
-------------------------------
-
-For simple demonstrations of how to use ProcScript, see the ProcScript demo apps in this repository.  The demos
-are brief and heavily commented and provide a great way to quickly learn ProcScript.
-
-corsDemo
-------------------------------
-This demo uses ProcScript to send Cross Origin Resource Sharing (CORS) requests to websites.  The heavily commented, brief code
-shows ProcScript making XmlHttpRequests and writing to a WebSQL database. 
-
-procRunnerDemo
-------------------------------
-This demo shows Proc Runners controlling multiple Procs running in Sequence, Parallel, Fallback or Race operations.  The 
-attractive, interactive GUI allows full control over duration, timeout and abort and also allows for nesting of Proc Runners.
-
-
