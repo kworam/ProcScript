@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="ProcScript : A JavaScript framework that makes it easier to do large-scale application development." />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>ProcScript</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/kworam/ProcScript">View on GitHub</a>
+
+          <h1 id="project_title">ProcScript</h1>
+          <h2 id="project_tagline">A JavaScript framework that makes it easier to do large-scale application development.</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/kworam/ProcScript/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/kworam/ProcScript/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="procscript" class="anchor" href="#procscript"><span class="octicon octicon-link"></span></a>ProcScript</h1>
+
+<p>A JavaScript framework that makes it easier to do large-scale application development.</p>
+
+<h2>
+<a name="why-procscript" class="anchor" href="#why-procscript"><span class="octicon octicon-link"></span></a>Why ProcScript?</h2>
+
+<p>While developing HTML5 web applications, I came to love and hate JavaScript.  </p>
+
+<p>I love JavaScript because it is very dynamic and flexible and I really love the 
+unparalleled <em>write-once, run-anywhere</em> reach of HTML5 apps.  </p>
+
+<p>I hate JavaScript because it is <em>too</em> dynamic and flexible.  I encountered many frustrating
+runtime errors that would be prevented by a type-checking system.  Many of the toughest 
+bugs to find and fix resulted from callers passing incomplete or mis-matched parameter lists to 
+functions.  </p>
+
+<p>I also found that while JavaScript is great for asynchronous programming, doing heavily 
+synchronous programming in JavaScript is almost impossible (see <em>The Pyramid of Doom</em>).</p>
+
+<p><a href="http://tritarget.org/blog/2012/11/28/the-pyramid-of-doom-a-javascript-style-trap/">http://tritarget.org/blog/2012/11/28/the-pyramid-of-doom-a-javascript-style-trap/</a></p>
+
+<p>If the number of sequenced operations is longer than four or five, the nested JavaScript 
+callback approach becomes very hard to manage.</p>
+
+<p>To overcome these JavaScript problems, I developed ProcScript.  ProcScript adds type checking and synchronous programming support to JavaScript.</p>
+
+<h2>
+<a name="procscript-features" class="anchor" href="#procscript-features"><span class="octicon octicon-link"></span></a>ProcScript features</h2>
+
+<ul>
+<li>Pure JavaScript: No Compilers or Preprocessors</li>
+<li>Type Checks Input and Output Parameters</li>
+<li>Makes Synchronous Programming Easy</li>
+<li>Use C# or Java skills to write JavaScript</li>
+<li>Great Debugging Support</li>
+<li>Provides Code Coverage Statistics</li>
+<li>Works with Promises</li>
+<li>Perform Sequence, Parallel, Fallback and Race operations with timeout and abort.</li>
+</ul><h2>
+<a name="procscript-demos" class="anchor" href="#procscript-demos"><span class="octicon octicon-link"></span></a>ProcScript Demos</h2>
+
+<p>Before we dive in, let me mention the ProcScript demos.  These simple demos are brief and heavily commented and provide a great way to quickly learn ProcScript.</p>
+
+<h2>
+<a name="corsdemo" class="anchor" href="#corsdemo"><span class="octicon octicon-link"></span></a>corsDemo</h2>
+
+<p>This demo sends Cross Origin Resource Sharing (CORS) requests to websites and shows how to use ProcScript 
+to make XmlHttpRequests and write to a WebSQL database. </p>
+
+<h2>
+<a name="procrunnerdemo" class="anchor" href="#procrunnerdemo"><span class="octicon octicon-link"></span></a>procRunnerDemo</h2>
+
+<p>This demo shows how to run multiple Procs in Sequence, Parallel, Fallback or Race operations with Proc Runners.  The 
+attractive, interactive GUI gives you full control over duration, timeout and abort and allows arbitrary nesting of Proc Runners.</p>
+
+<h2>
+<a name="procs" class="anchor" href="#procs"><span class="octicon octicon-link"></span></a>Procs</h2>
+
+<p>The ProcScript framework allows you to define and run Procs.  A Proc is like an enhanced 
+JavaScript function with type-checked input and output parameters and synchronous programming support.  A Proc has the following properties:</p>
+
+<ul>
+<li>Name:  The unique name of the Proc.</li>
+<li>Signature:  An object literal that defines the Proc's input and output parameters.</li>
+<li>Blocks:  The code of the Proc specified as an array of JavaScript functions.  ProcScript executes these functions synchronously, in array order.</li>
+</ul><h2>
+<a name="my-first-proc" class="anchor" href="#my-first-proc"><span class="octicon octicon-link"></span></a>My first Proc</h2>
+
+<p>When you include <em>ps.js</em> in your web app, you gain access to the ProcScript global
+variable (<code>PS</code>).  <code>PS.defineProc()</code> takes an object literal called a <em>proc config</em> as input.  The Proc config must have these properties:</p>
+
+<p><code>name</code> gives the unique name of the Proc.</p>
+
+<p><code>fnGetSignature</code> returns an object identifying the Proc's input and output parameters.  </p>
+
+<p><code>blocks</code> defines the code of the Proc as an array of functions.</p>
+
+<p>For example, the following example defines a simple Proc called "MyFirstProc":</p>
+
+<pre><code>var MyFirstProc = PS.defineProc({
+
+    name: "MyFirstProc",
+    fnGetSignature: function () {
+        return {
+            input1: ["string"],
+            output1: [Array, "out"]
+        };
+    },
+    blocks: [
+    function blockFunction1() {
+        console.log(this.input1);
+        return PS.NEXT;
+    },
+    function blockFunction2() {
+        this.output1 = [ "Hello World!" ];
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>The proc config specifies that <em>MyFirstProc</em> takes one <em>string</em> input (<code>input1</code>) and produces one <em>Array</em> output (<code>output1</code>).  It has two blocks of code: 
+the first block writes the value of <code>input1</code> to the console and the second sets the value of <code>output1</code> to an array containing "Hello World!".</p>
+
+<p><code>PS.defineProc()</code> registers <em>MyFirstProc</em> with the ProcScript framework and returns the MyFirstProc constructor function.  Use the constructor<br>
+to create and run instances of <em>MyFirstProc</em> like this:</p>
+
+<pre><code>var procInstance = new MyFirstProc({input1: "Hi Mom!"});
+procInstance.run();
+</code></pre>
+
+<h2>
+<a name="the-signature" class="anchor" href="#the-signature"><span class="octicon octicon-link"></span></a>The signature</h2>
+
+<p>The <code>fnGetSignature</code> member of the proc config is a function that returns an object literal called a <em>signature object</em>.
+The <em>signature object</em> defines the input and output parameters of the Proc and has this structure:</p>
+
+<pre><code>{
+paramName1: [ paramType, paramDir ],
+paramName2: [ paramType, paramDir ],
+...
+paramNameN: [ paramType, paramDir ]
+}
+</code></pre>
+
+<p><code>paramType</code></p>
+
+<p>The following <code>paramType</code> values are allowed:</p>
+
+<ul>
+<li><p>"boolean", "number", "string" or "function"<br>
+The parameter value must be a JavaScript boolean, number, string or function value.</p></li>
+<li><p><em>class constructor function</em><br>
+The parameter value must be an <code>instanceof</code> the class.</p></li>
+<li><p>null<br>
+The parameter value may be any type.</p></li>
+</ul><p><code>paramDir</code></p>
+
+<p>The following <code>paramDir</code> values are allowed:</p>
+
+<ul>
+<li><p>"in"<br>
+The parameter is input-only.</p></li>
+<li><p>"in-out"<br>
+The parameter is received as input and returned as output.</p></li>
+<li><p>"out"<br>
+The parameter is output-only.</p></li>
+<li><p>undefined<br>
+If no <code>paramDir</code> is specified, it defaults to "in".</p></li>
+</ul><h2>
+<a name="enforcing-the-signature" class="anchor" href="#enforcing-the-signature"><span class="octicon octicon-link"></span></a>Enforcing the signature</h2>
+
+<p>Notice that the <code>MyFirstProc</code> constructor takes an object literal input called a <em>parameter object</em>:</p>
+
+<pre><code>var procInstance = new MyFirstProc({input1: "Hi Mom!"});
+</code></pre>
+
+<p>When you create a Proc instance, ProcScript checks the parameter object against the signature object.  If the parameter object does not contain 
+a value of the right type for each "in" and "in-out" parameter, ProcScript throws an error.  </p>
+
+<p>Likewise, ProcScript checks the parameter object against the signature just before a Proc returns to its caller. If the parameter object 
+does not contain a value of the right type for each "in-out" and "out" parameter, ProcScript throws an error.</p>
+
+<h2>
+<a name="type-checking-objects" class="anchor" href="#type-checking-objects"><span class="octicon octicon-link"></span></a>Type checking objects</h2>
+
+<p>As mentioned above, if the <code>paramType</code> of a parameter is a class constructor function, ProcScript checks that the parameter value is an <code>instanceof</code> that class.  </p>
+
+<p>This works for core JavaScript classes (like Date or Array) but also for user-defined classes.  For example, if you define a Point class like this:</p>
+
+<pre><code>function Point(x, y) {
+    this.x = x;
+    this.y = y;
+}
+
+Point.prototype.toString = function () {
+    return "{" + this.x + "," + this.y + "}";
+}
+</code></pre>
+
+<p>You can write a Proc that inputs or outputs a <code>Point</code> object like this:</p>
+
+<pre><code>var PointProc = PS.defineProc({
+
+    name: "PointProc",
+    fnGetSignature: function () {
+        return {
+            inPoint: [Point]
+        };
+    },
+    blocks: [
+    function () {
+        console.log(this.inPoint.toString());
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<h2>
+<a name="block-functions-and-proc-locals" class="anchor" href="#block-functions-and-proc-locals"><span class="octicon octicon-link"></span></a>Block functions and Proc Locals</h2>
+
+<p>Each block function in a Proc is a normal JavaScript function.  You should give each block function a
+descriptive name as this makes Proc stack traces more informative and readable.  If you don't give a block function a 
+name, ProcScript auto-names it <code>block_N</code> where <code>N</code> is the index of the function in the <code>blocks</code> array.</p>
+
+<h2>
+<a name="proc-locals" class="anchor" href="#proc-locals"><span class="octicon octicon-link"></span></a>Proc locals</h2>
+
+<p>Inside a block function, <code>this</code> refers to the Proc instance that is running.  Properties of the Proc instance 
+are referred to as <em>Proc locals</em>.</p>
+
+<p>For example, this block function sets Proc local <code>x</code> to 'hello'.</p>
+
+<pre><code>function blockFunc () {
+    this.x = 'hello';
+}
+</code></pre>
+
+<p>A Proc local is available in the block function where it is declared and in subsequent block functions.  </p>
+
+<p>ProcScript automatically creates Proc locals for each "in" and "in-out" parameter.  <code>blockFunction1</code> of <code>MyFirstProc</code> 
+shows this with the "in" parameter <code>input1</code>:</p>
+
+<pre><code>    function blockFunction1() {
+        console.log(this.input1);
+        return PS.NEXT;
+    }
+</code></pre>
+
+<p>To set an "in-out" or "out" parameter, just set a Proc local with the parameter's name to the desired value.  <code>blockFunction2</code> of <code>MyFirstProc</code> 
+shows this with "out" parameter <code>output1</code>:</p>
+
+<pre><code>    function blockFunction2() {
+        this.output1 = [ "Hello World!" ];
+        return PS.NEXT;
+    }
+</code></pre>
+
+<h2>
+<a name="block-function-return-values" class="anchor" href="#block-function-return-values"><span class="octicon octicon-link"></span></a>Block function return values</h2>
+
+<p>All block functions must return one of the following values.  The return value tells ProcScript what to do next:</p>
+
+<ul>
+<li><p><code>PS.NEXT</code><br>
+Run the next block function.</p></li>
+<li><p><code>PS.RETURN</code><br>
+Return to the caller of this Proc.</p></li>
+<li><p><code>PS.BREAK</code><br>
+Break out of a loop Proc.</p></li>
+<li><p><code>PS.CONTINUE</code><br>
+Skip to the next iteration of a loop Proc.</p></li>
+<li><p><em>Proc Instance</em><br>
+Run <em>Proc Instance</em> and pass its parameter object to the next block function.</p></li>
+<li><p><code>PS.WAIT_FOR_CALLBACK</code><br>
+Adapter Procs return this value so ProcScript will wait for a callback from a blocking function.</p></li>
+</ul><p>If a block function returns anything other than one of these values, ProcScript throws an error.</p>
+
+<h2>
+<a name="chaining-procs" class="anchor" href="#chaining-procs"><span class="octicon octicon-link"></span></a>Chaining Procs</h2>
+
+<p>If a block function returns a Proc instance, ProcScript runs it and passes its parameter object to the next block function.  This 
+lets you chain Procs together into call stacks.</p>
+
+<p>Here is a simple example:</p>
+
+<pre><code>var ProcCallsProc = PS.defineProc({
+
+    name: "ProcCallsProc",
+    fnGetSignature: function () {
+        return {};
+    },
+    blocks: [
+    function blockFunction1() {
+        return new MyFirstProc({input1: "Hi Mom!"});
+    },
+    function blockFunction2(paramObj) {
+        console.log(paramObj.output1[0]);
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>In <code>ProcCallsProc</code>, <code>blockFunction2</code> receives the parameter object from <code>MyFirstProc</code> in variable <code>paramObj</code>.</p>
+
+<p>Running <code>ProcCallsProc</code> like this:</p>
+
+<pre><code>new ProcCallsProc({}).run();
+</code></pre>
+
+<p>produces this console output:</p>
+
+<pre><code>Hi Mom!
+Hello World!
+</code></pre>
+
+<h2>
+<a name="proc-call-stacks" class="anchor" href="#proc-call-stacks"><span class="octicon octicon-link"></span></a>Proc call stacks</h2>
+
+<p>The first Proc Instance in a call stack is called the root Proc.  When a root Proc runs, 
+ProcScript allocates a virtual <em>thread</em> for that root Proc and its descendant (callee) Procs.</p>
+
+<p>You can dump the call stack from any Proc Instance in a thread with this function:</p>
+
+<pre><code>Proc.callStackToString()
+</code></pre>
+
+<p>The stack dump looks like this:</p>
+
+<pre><code>Proc Call Stack:
+ ProcScript Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)     
+ MyFirstProc.blockFunction1
+ ProcCallsProc.blockFunction1
+</code></pre>
+
+<p>Each Proc Instance in the call chain is listed, one per line, with the root Proc at the bottom.</p>
+
+<p>Note that the Proc call stack starts with:</p>
+
+<pre><code>ProcScript Thread Id: 0 Created ...
+</code></pre>
+
+<p>Once again, this is not an operating system thread but a <em>virtual</em> ProcScript thread.  </p>
+
+<p>The Proc call stack contains the chain of Proc Instances that called each other leading up to the breakpoint or exception.  Each entry 
+in the Proc call stack is of the form:</p>
+
+<pre><code>Proc Name.Block Function Name
+</code></pre>
+
+<p>In the example above, block function <code>blockFunction1</code> in Proc <code>ProcCallsProc</code> called Proc <code>MyFirstProc</code>.  The breakpoint or exception occured in 
+<code>blockFunction1</code> of <code>MyFirstProc</code>.</p>
+
+<p>To dump the call stacks of all active ProcScript threads, use this function:</p>
+
+<pre><code>PS.threadsToString()
+</code></pre>
+
+<h2>
+<a name="_catch-and-_finally-block-functions" class="anchor" href="#_catch-and-_finally-block-functions"><span class="octicon octicon-link"></span></a>_catch and _finally block functions</h2>
+
+<p>If you name a block function <em>_catch</em> or <em>_finally</em>, ProcScript treats it as the catch or finally clause for the Proc.  There can only be<br>
+one _catch or _finally block function in a Proc and they must come last in the <code>blocks</code> array.</p>
+
+<p>The _catch and _finally block functions perform the same duties for Procs that <code>catch</code> and <code>finally</code> clauses do for JavaScript
+functions.  If a block function throws an error, ProcScript passes it to the Proc's _catch block function for handling.  If the Proc has no 
+_catch block function, ProcScript propagates the error to the caller Proc until it finds one with a _catch handler.  </p>
+
+<p>If a Proc has a _finally block function, ProcScript <em>always</em> runs it before returning to the Proc's caller, regardless
+of whether the Proc failed or succeeded.</p>
+
+<p>Here is a Proc with _catch and _finally block functions:</p>
+
+<pre><code>var CatchFinallyProc = PS.defineProc({
+
+    name: "CatchFinallyProc",
+    fnGetSignature: function () {
+        return {
+        };
+    },
+    blocks: [
+    function doIt() {
+        console.log("doIt: start spinner....");         
+        undefinedFunction();
+        return PS.NEXT;
+    },
+    function _catch (err) {
+        console.log("_catch: err=" + err);
+        return PS.NEXT;
+    },
+    function _finally () {
+        console.log("_finally: stop spinner....");
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>Note that block function <code>doIt</code> calls <code>undefinedFunction()</code> which causes a JavaScript error.  If you run <code>CatchFinallyProc</code> like so:</p>
+
+<pre><code>new CatchFinallyProc({}).run();
+</code></pre>
+
+<p>You will see this output:</p>
+
+<pre><code>doIt: start spinner....
+
+...ProcScript Stack Trace...
+
+_catch: err=ReferenceError: undefinedFunction is not defined
+_finally: stop spinner....
+</code></pre>
+
+<h2>
+<a name="loop-procs" class="anchor" href="#loop-procs"><span class="octicon octicon-link"></span></a>Loop Procs</h2>
+
+<p>ProcScript supports four loop constructs:</p>
+
+<ol>
+<li>For</li>
+<li>ForEach </li>
+<li>While</li>
+<li>Do...While</li>
+</ol><p>ProcScript implements these constructs with <em>Loop Procs</em>.  You define a loop Proc by specifying a loop property in its proc config. </p>
+
+<h2>
+<a name="for-loops" class="anchor" href="#for-loops"><span class="octicon octicon-link"></span></a>For loops</h2>
+
+<p>Define a <code>For</code> loop proc with the <code>fnForLoop</code> property like so:</p>
+
+<pre><code>var ForLoopProc = PS.defineProc({
+
+    name: "ForLoopProc",
+    fnGetSignature: function () {
+        return {
+            arr: [Array]
+        };
+    },
+    fnForLoop: function () {
+        return {
+            init:               function () { this.i = this.arr.length-1; },
+            beforeIteration:    function () { return this.i &gt;= 0; },
+            afterIteration:     function () { this.i -= 2; },           
+        };
+    },
+    blocks: [
+    function blockFunction1() {
+        console.log(this.arr[this.i]);
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>ProcScript runs the For loop Proc as follows:</p>
+
+<pre><code>1. Run the `init` function.
+2. Run `beforeIteration` 
+    - If it returns true, run the entire Proc, then `afterIteration` and then go to step 2 again.
+    - If it returns false, return to the Proc's caller.
+</code></pre>
+
+<p>This is equivalent to the following <code>for</code> loop in Java:</p>
+
+<pre><code>public void forLoop (char[] arr)
+{
+    for (int i=arr.length-1; i &gt;=0; i -= 2)
+    {
+        System.out.println(arr[i]);
+    }
+}
+</code></pre>
+
+<p>Run ForLoopProc like this:  </p>
+
+<pre><code>new ForLoopProc({arr: ['a','b','c','d','e','f']}).run();
+</code></pre>
+
+<p>and you will see this output:</p>
+
+<pre><code>f
+d
+b
+</code></pre>
+
+<h2>
+<a name="foreach-loops" class="anchor" href="#foreach-loops"><span class="octicon octicon-link"></span></a>ForEach loops</h2>
+
+<p>Define a <code>ForEach</code> loop proc with the <code>fnGetForEachArray</code> property like so:</p>
+
+<pre><code>var MyForEachProc = PS.defineProc({
+
+    name: "MyForEachProc",
+    fnGetSignature: function () {
+        return {
+            input1: ["string"],
+            arr: [Array]
+        };
+    },
+    fnGetForEachArray: function () { return this.arr; },
+    blocks: [
+    function blockFunction1() {
+        console.log(this.getCurrentForEachItem());
+        console.log(this.getCurrentLoopIterationIndex());
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>The <code>fnGetForEachArray</code> property defines a function that returns an array.  ProcScript calls this function once, at Proc 
+startup time, and then executes the Proc once for each member of the resulting array.  </p>
+
+<p>This example demonstrates the following loop support functions:</p>
+
+<p><code>Proc.getCurrentForEachItem()</code>          returns the current item in the <code>ForEach</code> array.</p>
+
+<p><code>Proc.getCurrentLoopIterationIndex()</code>   returns the current iteration count of the loop Proc <em>(zero-based)</em>.</p>
+
+<p><code>Proc.getCurrentForEachItem()</code> returns null if called from a Proc that is not a <code>ForEach</code> loop proc.<br><code>Proc.getCurrentLoopIterationIndex()</code> returns null if called from a non-loop Proc.</p>
+
+<h2>
+<a name="while-loops" class="anchor" href="#while-loops"><span class="octicon octicon-link"></span></a>While loops</h2>
+
+<p>Define a <code>While</code> loop proc with the <code>fnWhileTest</code> property like so:</p>
+
+<pre><code>var WhileProc = PS.defineProc({
+
+    name: "WhileProc",
+    fnGetSignature: function () {
+        return {
+            input1: ["string"],
+            bContinue: ["boolean"]              
+        };
+    },
+    fnWhileTest: function () { return this.bContinue; },
+    blocks: [
+    function blockFunction1() {
+        this.i = this.getCurrentLoopIterationIndex();
+        console.log(this.i);
+        return PS.NEXT;
+    },
+    function blockFunction2() {
+        if (this.i == 100) {
+            this.bContinue = false;
+        }
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>The <code>fnWhileTest</code> property defines a function that returns a boolean (true or false) value.  ProcScript calls 
+this function before executing the first block function in the Proc.  If it returns false, ProcScript returns to 
+the caller.  If it returns true, ProcScript runs the Proc.  </p>
+
+<p>ProcScript repeats this process until the <code>fnWhileTest</code> function returns false.</p>
+
+<h2>
+<a name="dowhile-loops" class="anchor" href="#dowhile-loops"><span class="octicon octicon-link"></span></a>Do...While loops</h2>
+
+<p>Define a <code>Do...While</code> loop proc with the <code>fnDoWhileTest</code> property like so:</p>
+
+<pre><code>var DoWhileProc = PS.defineProc({
+
+    name: "DoWhileProc",
+    fnGetSignature: function () {
+        return {
+            arr: [Array]
+        };
+    },
+    fnDoWhileTest: function () {
+        return false;
+    },
+    blocks: [
+    function blockFunction1() {
+        console.log(this.arr[this.getCurrentLoopIterationIndex()]);
+        return PS.NEXT;
+    }]
+
+});
+</code></pre>
+
+<p>The <code>fnDoWhileTest</code> property defines a function that returns a boolean (true or false) value.  ProcScript calls 
+the <code>fnDoWhileTest</code> function after executing the last block function in the Proc.  If it returns false, ProcScript returns to 
+the caller.  If it returns true, ProcScript runs the Proc again. </p>
+
+<h2>
+<a name="control-flow-in-loop-procs" class="anchor" href="#control-flow-in-loop-procs"><span class="octicon octicon-link"></span></a>Control Flow in loop Procs</h2>
+
+<p>In a loop Proc, return value <code>PS.CONTINUE</code> works like the JavaScript <code>continue</code> statement.  ProcScript skips the 
+remaining block functions and begins running the next iteration of the loop.  Likewise, return value <code>PS.BREAK</code> works like the 
+JavaScript <code>break</code> statement.  It makes ProcScript immediately return to the Proc's caller.  </p>
+
+<p>If you define and run this loop Proc:</p>
+
+<pre><code>var LoopControlsProc = PS.defineProc({
+
+    name: "LoopControlsProc",
+    fnGetSignature: function () {
+        return {
+            input1: ["string"],
+            arr: [Array]
+        };
+    },
+    fnGetForEachArray: function () { return this.arr; },
+    blocks: [
+    function blockFunction1() {
+        this.i = this.getCurrentLoopIterationIndex();
+        if (this.i == 1) {
+            return PS.CONTINUE;
+        } else if (this.i == 3) {
+            return PS.BREAK;
+        }
+        return PS.NEXT;
+    },
+    function blockFunction2 () {
+        console.log(this.input1 + ": i=" + this.i);
+        return PS.NEXT;
+    }]
+
+});
+
+new LoopControlsProc({input1: "LoopControlsProc", arr: [0,1,2,3,4]}).run();
+</code></pre>
+
+<p>you will get this console output:</p>
+
+<pre><code>LoopControlsProc: i=0
+LoopControlsProc: i=2
+</code></pre>
+
+<p>If a block function in a non-loop Proc returns <code>PS.CONTINUE</code> or <code>PS.BREAK</code>, ProcScript throws an error.</p>
+
+<h2>
+<a name="catch-finally-in-loop-procs" class="anchor" href="#catch-finally-in-loop-procs"><span class="octicon octicon-link"></span></a>Catch-Finally in loop Procs</h2>
+
+<p>If a loop Proc has _catch or _finally block functions, ProcScript behaves as if they are outside the loop, not inside.  The equivalent 
+JavaScript code would look like this:</p>
+
+<pre><code>try {
+    while (bContinue) {
+        ..
+    }
+} catch () {
+} finally {
+}
+</code></pre>
+
+<p>If you want the try-catch inside the loop like this:</p>
+
+<pre><code>while (bContinue) {
+    try {
+        ...
+    } catch () {
+    } finally {
+    }
+}
+</code></pre>
+
+<p>then put the _catch and _finally in a non-loop Proc and call it from the loop Proc.</p>
+
+<h2>
+<a name="adapter-procs" class="anchor" href="#adapter-procs"><span class="octicon octicon-link"></span></a>Adapter Procs</h2>
+
+<p>An Adapter Proc turns a blocking function into a Proc.  Writing an Adapter Proc is simple:<br>
+just set the <code>adapter</code> property in the proc config and make the blocking function call 
+<code>PS.procSucceeded</code> or <code>PS.procFailed</code> as appropriate.</p>
+
+<p>Here is an example from the ProcScript demo app:</p>
+
+<pre><code>// XHR.makeCorsRequestProc is an Adapter Proc for XmlHttpRequest
+
+XHR.makeCorsRequestProc = PS.defineProc({
+    name: "XHR.makeCorsRequestProc",
+    fnGetSignature: function () {
+        return {
+            method: ["string"],
+            url: ["string"],
+            responseText: ["string", "out"]  
+        };
+    },
+    adapter: true,
+    blocks: [
+    function sendRequest() {
+        var proc = this;
+        proc.responseText = null;   // initialize the 'responseText' output parameter
+
+        var xhr = XHR.createCORSRequest(this.method, this.url);
+        if (!xhr) {
+            throw new Error('[XHR.makeCorsRequest]  CORS not supported by your browser.')
+        }
+
+        xhr.onload = function () {
+            // The Adapter Proc succeeded
+            proc.responseText = xhr.responseText;   // set the 'responseText' output parameter 
+            PS.procSucceeded(proc)        
+        };
+
+        xhr.onerror = function () {
+            // The Adapter Proc failed
+            PS.procFailed(proc, '[XHR.makeCorsRequest]  CORS request resulted in error.\n')
+        };
+
+        xhr.send();
+
+        // Tell ProcScript to wait for a callback from the blocking function above.
+        return PS.WAIT_FOR_CALLBACK;
+    }]
+
+});
+</code></pre>
+
+<p>Note how <code>XHR.makeCorsRequestProc</code> stashes a reference to itself in variable <code>proc</code> and passes it to 
+the <code>PS.procSucceeded</code> or <code>PS.procFailed</code> function.  </p>
+
+<p><code>PS.procSucceeded</code> tells ProcScript that the Adapter Proc completed successfully.  Before calling this function, 
+the Adapter Proc must set the value of its "in-out" or "out" parameters.  </p>
+
+<p><code>PS.procFailed</code> tells ProcScript that the Adapter Proc failed.  The second parameter to <code>PS.procFailed</code> 
+is a string containing the reason for the failure.  ProcScript propagates this error string up the Proc call stack 
+as described in the <em>_catch and _finally block functions</em> section of this readme.</p>
+
+<h2>
+<a name="using-adapter-procs" class="anchor" href="#using-adapter-procs"><span class="octicon octicon-link"></span></a>Using Adapter Procs</h2>
+
+<p>Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is an example from the ProcScript demo app:</p>
+
+<pre><code>return new XHR.makeCorsRequestProc({
+    method: this.httpMethodValue,
+    url: this.txtURLValue
+});
+</code></pre>
+
+<p>Adapter Procs can only have one block function and they cannot have _catch or _finally clauses.  An Adapter Proc's
+block function must return <code>PS.WAIT_FOR_CALLBACK</code>, any other return value causes ProcScript to throw an error.  If a 
+non-Adapter Proc returns <code>PS.WAIT_FOR_CALLBACK</code>, ProcScript throws an error.  </p>
+
+<h2>
+<a name="working-with-promises" class="anchor" href="#working-with-promises"><span class="octicon octicon-link"></span></a>Working with Promises</h2>
+
+<p>ProcScript works with Promise frameworks like Q:</p>
+
+<p><a href="https://github.com/kriskowal/q">https://github.com/kriskowal/q</a></p>
+
+<p>and JQuery:</p>
+
+<p><a href="http://api.jquery.com/Types/#Deferred">http://api.jquery.com/Types/#Deferred</a></p>
+
+<p><a href="http://api.jquery.com/Types/#Promise">http://api.jquery.com/Types/#Promise</a></p>
+
+<p><code>PS.promiseToRun</code> takes in a deferred, a Proc instance and (optionally) runParams, and returns a promise:</p>
+
+<pre><code>PS.promiseToRun(deferred, proc, runParams)
+</code></pre>
+
+<p><code>PS.promiseToRun</code> runs the specified Proc instance with the specified runParams (if any).  If the Proc succeeds, 
+it resolves the deferred with its parameter object like so:</p>
+
+<pre><code>deferred.resolve(this.getParameterObject())
+</code></pre>
+
+<p>If it fails, it rejects the deferred with its failure object like so:</p>
+
+<pre><code>deferred.reject(this.getFailure())
+</code></pre>
+
+<p>This lets you run Proc instances as part of a promise chain.  Here is an example using Q:</p>
+
+<pre><code>fnReturnsPromise().then( 
+
+function () { 
+    return PS.promiseToRun(Q.defer(), new MyProc());
+}).then(
+
+function () {
+    fnReturnsPromise() 
+});
+</code></pre>
+
+<p>and here is an example using JQuery:</p>
+
+<pre><code>fnReturnsPromise().then( 
+
+function () { 
+    return PS.promiseToRun($.Deferred(), new MyProc());
+}).then(
+
+function () {
+    fnReturnsPromise() 
+});
+</code></pre>
+
+<h2>
+<a name="procscript-debugging" class="anchor" href="#procscript-debugging"><span class="octicon octicon-link"></span></a>ProcScript debugging</h2>
+
+<p>Incomplete or confusing error messages are frustrating and waste valuable development time.  If an exception occurs or 
+a developer uses the framework incorrectly, ProcScript makes every effort to provide complete and helpful error messages.  </p>
+
+<p>ProcScript maintains a Proc call stack for each Proc call chain.  If an unhandled exception occurs in a block function, 
+ProcScript writes a detailed error summary to the console including the Proc call stack as well as the JavaScript call stack.  </p>
+
+<p>Here is an example from the ProcScript demonstration app:</p>
+
+<pre><code>[onProcException] localhost/:14
+err=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function localhost/:15
+errorMessage: localhost/:17
+Unhandled exception in App.initDbProc.createTablesIfNecessary
+
+JavaScript Error Object:
+ Error.message=[App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
+ Error.stack=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function
+    at createTablesIfNecessary (http://localhost/psDemo/app.js:147:19)
+    at procDispatch (http://localhost/psDemo/app/utility/ps.js:1074:27)
+    at MessagePort.channel.port1.onmessage (http://localhost/psDemo/app/utility/ps.js:86:13)
+
+Proc Call Stack:
+ Thread Id: 0, Created: Tue Jun 04 2013 14:05:05 GMT-0500 (Central Daylight Time)
+
+ App.initDbProc.createTablesIfNecessary
+ App.corsTestProc.isDbPopulated
+</code></pre>
+
+<p>The JavaScript stack trace is listed under the heading <code>JavaScript Error Object:</code>. </p>
+
+<p>The debugging tools in many browsers allow you to click on any line in the JavaScript stack trace to go straight 
+to the associated line in the JavaScript source.</p>
+
+<p>The Proc call stack is listed under the heading <code>Proc Call Stack:</code>.  </p>
+
+<p>The combination of the JavaScript and ProcScript call stacks is very helpful in debugging web applications.</p>
+
+<h2>
+<a name="listening-for-procscript-events" class="anchor" href="#listening-for-procscript-events"><span class="octicon octicon-link"></span></a>Listening for ProcScript events</h2>
+
+<p>You can register or un-register for ProcScript events using these functions:</p>
+
+<pre><code>PS.addListener(eventType, f)
+PS.removeListener(eventType, f)
+</code></pre>
+
+<p>The following <code>eventType</code> values are supported:</p>
+
+<p>"procException"  </p>
+
+<p>ProcScript notifies "procException" listeners when an exception occurs in a Proc.<br>
+ProcScript passes the following parameters to the registered callback function:</p>
+
+<p><code>err</code> the thrown error value.</p>
+
+<p><code>errorMessage</code> the detailed error summary (including stack traces) that ProcScript creates to describe <code>err</code>.</p>
+
+<p>Here is an example of a listener registering for "procException" events:</p>
+
+<pre><code>    var onProcException = function (err, errorMessage) {
+
+        console.log("[onProcException]");
+        console.log("err=" + err);
+
+        console.log("errorMessage:");
+        console.log(errorMessage);
+    }
+
+    // To get a callback from ProcScript when a Proc failure happens,
+    // register as a 'procException' listener.
+    PS.addListener('procException', onProcException);
+</code></pre>
+
+<p>and here is how to un-register that listener:</p>
+
+<pre><code>    PS.removeListener('procException', onProcException);
+</code></pre>
+
+<h2>
+<a name="code-coverage-statistics" class="anchor" href="#code-coverage-statistics"><span class="octicon octicon-link"></span></a>Code coverage statistics</h2>
+
+<p>To get code coverage statistics from ProcScript, call this function:</p>
+
+<pre><code>PS.cloneProcRegistry()
+</code></pre>
+
+<p>This returns a deep copy of the ProcScript registry.  It is safe for you to use this copy 
+without affecting the actual ProcScript registry.</p>
+
+<p>The Registry object returned by <code>PS.cloneProcRegistry()</code> has the following structure:</p>
+
+<pre><code>*Proc Registry Object*
+{
+    &lt;procName1&gt;: &lt;ProcRecord&gt;
+    &lt;procName2&gt;: &lt;ProcRecord&gt;
+    ...
+    &lt;procNameN&gt;: &lt;ProcRecord&gt;
+}
+</code></pre>
+
+<p>where:</p>
+
+<p><code>&lt;procNameN&gt;</code> is the name of the Proc as specified in the call to <code>PS.defineProc</code> and
+<code>&lt;ProcRecord&gt;</code> is an object with the following structure:</p>
+
+<pre><code>*ProcRecord Object*
+{ 
+    runCount: &lt;number&gt;,
+    blockRecords: &lt;BlockRecords object&gt;
+}
+</code></pre>
+
+<p>where:</p>
+
+<p><code>runCount</code> is the number of times ProcScript has run the Proc and
+<code>blockRecords</code> is an object with the following structure:</p>
+
+<pre><code>*BlockRecords Object*
+{ 
+    &lt;blockName1&gt;: &lt;BlockRecord&gt;
+    &lt;blockName2&gt;: &lt;BlockRecord&gt;
+    ...
+    &lt;blockNameN&gt;: &lt;BlockRecord&gt;
+}
+</code></pre>
+
+<p>where:</p>
+
+<p><code>&lt;blockNameN&gt;</code> is the name of the block function (user-specified or auto-named) and 
+<code>&lt;BlockRecord&gt;</code> is an object with the following structure:</p>
+
+<pre><code>*BlockRecord Object*
+{ 
+    runCount: &lt;number&gt;
+}
+</code></pre>
+
+<p>where:</p>
+
+<p><code>runCount</code> is the number of times ProcScript has run the block function.</p>
+
+<h2>
+<a name="using-code-coverage-statistics" class="anchor" href="#using-code-coverage-statistics"><span class="octicon octicon-link"></span></a>Using code coverage statistics</h2>
+
+<p>Note that the runCounts in the Proc Registry object reset to zero each time your JavaScript
+application reloads (ie, you refresh the web page hosting it).  To build coverage statistics over time, you should 
+accumulate ProcScript runCounts into persistent storage of some kind.</p>
+
+<p>If a ProcRecord has a runCount of zero, then ProcScript has not run it since the JavaScript application loaded.  If a 
+ProcRecord has a non-zero runCount, however, it could have one or more BlockRecords with a zero runCount.   You should
+remember this when analyzing the statistics to determine your true code coverage.</p>
+
+<p>Finally, bear in mind that these code coverage statistics are only valid for the parts of your JavaScript application 
+that are coded as ProcScript Procs.  They cannot tell you anything about your coverage of non-ProcScript JavaScript.</p>
+
+<h2>
+<a name="the-procscript-api" class="anchor" href="#the-procscript-api"><span class="octicon octicon-link"></span></a>The ProcScript API</h2>
+
+<p>Here is a quick summary of the ProcScript API:</p>
+
+<h2>
+<a name="ps-api" class="anchor" href="#ps-api"><span class="octicon octicon-link"></span></a>PS API</h2>
+
+<p><code>PS</code> is the object that ProcScript makes available as a JavaScript global.  It provdes access
+to all ProcScript functionality as defined below.</p>
+
+<p>These functions define, undefine or get a Proc in the ProcScript registry. </p>
+
+<pre><code>PS.defineProc(configObject)
+PS.undefineProc(procName)
+PS.getProc(procName)
+</code></pre>
+
+<p>Adapter Procs call these functions to tell ProcScript whether they succeeded or failed.</p>
+
+<pre><code>PS.procSucceeded(adapterProcInstance)
+PS.procFailed(adapterProcInstance, errorMessage)
+</code></pre>
+
+<p>These are the block function return values supported by ProcScript.</p>
+
+<pre><code>PS.NEXT
+PS.RETURN
+PS.CONTINUE
+PS.BREAK
+PS.WAIT_FOR_CALLBACK
+</code></pre>
+
+<p>These functions add or remove ProcScript listeners.</p>
+
+<pre><code>PS.addListener(eventType, callback)
+PS.removeListener(eventType, callback)
+</code></pre>
+
+<p>This function returns a string dump of all active ProcScript threads.</p>
+
+<pre><code>PS.threadsToString()
+</code></pre>
+
+<p>These functions provide access to ProcScript's code coverage statistics.</p>
+
+<pre><code>PS.cloneProcRegistry()
+PS.codeCoverageToString()
+</code></pre>
+
+<h2>
+<a name="working-with-promises-" class="anchor" href="#working-with-promises-"><span class="octicon octicon-link"></span></a>Working with Promises </h2>
+
+<p><code>PS.promiseToRun</code> takes a deferred, a Proc instance and (optionally) runParams, and returns a promise.</p>
+
+<pre><code>PS.promiseToRun(deferred, proc, runParams)
+</code></pre>
+
+<p><code>PS.promiseToRun</code> runs the specified Proc instance and resolves or rejects the deferred when the Proc finishes.  If the Proc<br>
+succeeds, it resolves the deferred with its parameter object.  If it fails, it rejects the deferred with its failure message.</p>
+
+<h2>
+<a name="proc-runners-" class="anchor" href="#proc-runners-"><span class="octicon octicon-link"></span></a>Proc Runners </h2>
+
+<p>ProcRunners are Adapter Procs that run multiple Proc Instances in various ways.  <code>PS.ProcList</code> is 
+a helper class for passing Proc Instances to a ProcRunner.</p>
+
+<pre><code>PS.ProcList(arr)
+PS.ProcList.getArray()
+</code></pre>
+
+<p>The constructor function takes an array of Proc Instances.  It type-checks the array and ensures it is not empty.
+<code>getArray</code> returns the type-checked array of Proc Instances.</p>
+
+<p>ProcScript pre-defines four ProcRunners for your convenience.  Set a timeout for a ProcRunner by calling 
+PS.Proc.setTimeout() before running it.  Abort a running ProcRunner by calling PS.Proc.abort() on it.</p>
+
+<p>Here are the names and signatures of the four pre-defined ProcRunners:</p>
+
+<h2>
+<a name="pssequenceprocrunner" class="anchor" href="#pssequenceprocrunner"><span class="octicon octicon-link"></span></a>PS.SequenceProcRunner</h2>
+
+<pre><code>fnGetSignature: function () {
+    return {
+        procList: [PS.ProcList]
+    };
+}
+</code></pre>
+
+<p>PS.SequenceProcRunner runs the specified list of Procs in sequence. 
+If any Proc fails, PS.SequenceProcRunner fails.<br>
+Otherwise, PS.SequenceProcRunner succeeds.</p>
+
+<h2>
+<a name="psfallbackprocrunner" class="anchor" href="#psfallbackprocrunner"><span class="octicon octicon-link"></span></a>PS.FallbackProcRunner</h2>
+
+<pre><code>fnGetSignature: function () {
+    return {
+        procList: [PS.ProcList],
+        fallbackIndex: ["number", "out"]
+    };
+}
+</code></pre>
+
+<p>PS.FallbackProcRunner runs the specified list of Procs in sequence.<br>
+If all the Procs fail, PS.FallbackProcRunner fails.<br>
+Otherwise, PS.FallbackProcRunner returns the index of the first successful Proc in 'fallbackIndex'.</p>
+
+<h2>
+<a name="psraceprocrunner" class="anchor" href="#psraceprocrunner"><span class="octicon octicon-link"></span></a>PS.RaceProcRunner</h2>
+
+<pre><code>fnGetSignature: function () {
+    return {
+        procList: [PS.ProcList],
+        winnerIndex: ["number", "out"]
+    };
+}
+</code></pre>
+
+<p>PS.RaceProcRunner starts all of the Procs in the specified list running simultaneously.<br>
+If all the Procs fail, PS.RaceProcRunner fails.<br>
+Otherwise, PS.RaceProcRunner returns the index of the first successful Proc in 'fallbackIndex'.</p>
+
+<h2>
+<a name="psparallelprocrunner" class="anchor" href="#psparallelprocrunner"><span class="octicon octicon-link"></span></a>PS.ParallelProcRunner</h2>
+
+<pre><code>fnGetSignature: function () {
+    return {
+        procList: [PS.ProcList]
+    };
+}
+</code></pre>
+
+<p>PS.ParallelProcRunner starts all of the Procs in the specified list running simultaneously.<br>
+If any of the Procs fail, PS.ParallelProcRunner fails.
+Otherwise, PS.ParallelProcRunner succeeds.</p>
+
+<h2>
+<a name="psproc-api" class="anchor" href="#psproc-api"><span class="octicon octicon-link"></span></a>PS.Proc API</h2>
+
+<p><code>PS.Proc</code> is the prototype (base class) for all Proc definitions.  All Proc Instances are 
+instances of <code>PS.Proc</code> and can access these functions:</p>
+
+<pre><code>run ( [ runParams ] )
+</code></pre>
+
+<p><code>run</code> returns the thread Id of the running Proc Instance.
+You can optionally pass <code>run</code> an object literal called <code>runParams</code>.  runParams can contain the following properties:</p>
+
+<pre><code>runParams.timeout 
+runParams.fnStatusChanged
+</code></pre>
+
+<p>If <code>runParams.timeout</code> is defined, ProcScript calls <code>setTimeout</code> on the Proc Instance with the specified value.
+If <code>runParams.fnStatusChanged</code> is defined, ProcScript calls <code>addStatusChangedListener</code> on the Proc Instance with the specified value.</p>
+
+<pre><code>abort ( [reason] )
+</code></pre>
+
+<p>aborts the Proc Instance.  If <code>reason</code> is specified, ProcScript reports it as the reason why the Proc Instance was aborted.</p>
+
+<pre><code>setTimeout(ms)
+</code></pre>
+
+<p>If the Proc has not finished after 'ms' milliseconds, it aborts itself with a reason of "timeout".  If 'ms' is zero, the Proc never times out.</p>
+
+<pre><code>getTimeout()
+</code></pre>
+
+<p>Returns the millisecond timeout setting for the Proc.</p>
+
+<pre><code>getTimeoutReason()
+</code></pre>
+
+<p>Returns the reason that the Proc timed out.  If the Proc has not timed out, returns undefined.</p>
+
+<pre><code>setInstanceName(name)
+</code></pre>
+
+<p>Sets the name associated with this Proc instance to the string <code>name</code>.</p>
+
+<pre><code>getInstanceName()
+</code></pre>
+
+<p>Returns the name associated with this Proc instance or undefined.</p>
+
+<pre><code>succeeded()
+</code></pre>
+
+<p>true if the Proc Instance succeeded.</p>
+
+<pre><code>failed()
+</code></pre>
+
+<p>true if the Proc Instance failed or was aborted.</p>
+
+<pre><code>aborted()
+</code></pre>
+
+<p>true if the Proc Instance was aborted.</p>
+
+<pre><code>getParameterObject()
+</code></pre>
+
+<p>gets the Proc Instance's parameter object.<br>
+NOTE:  The "in-out" and "out" parameters are only guaranteed to be correct if the Proc Instance succeeded.</p>
+
+<pre><code>getFailure()
+</code></pre>
+
+<p>gets the Proc Instance's failure reason.</p>
+
+<pre><code>getAbortReason()
+</code></pre>
+
+<p>If the Proc Instance was aborted, this returns the reason why.</p>
+
+<pre><code>getThreadId()
+</code></pre>
+
+<p>returns the unique Id of this Proc Instance's thread.</p>
+
+<pre><code>getCurrentForEachItem()
+</code></pre>
+
+<p>In <code>ForEach</code> loop Proc Instance, getCurrentForEachItem() gets the current array item being processed.
+Returns null if the Proc instance is not a <code>ForEach</code> loop Proc.</p>
+
+<pre><code>getCurrentLoopIterationIndex()
+</code></pre>
+
+<p>In loop Proc Instances, getCurrentLoopIterationIndex() returns the zero-based loop iteration count.
+Returns null if the Proc instance is not a loop Proc.</p>
+
+<pre><code>callStackToString()
+</code></pre>
+
+<p>callStackToString() returns a string dump of the ProcScript thread for this Proc Instance.</p>
+
+<p>You can register for status change events from a Proc instance using this function:</p>
+
+<pre><code>addStatusChangedListener(fnStatusChangedListener)
+</code></pre>
+
+<p>where <code>fnProcStatusChanged</code> is a function like this:</p>
+
+<pre><code>fnStatusChangedListener = function (proc, status) { ... }
+</code></pre>
+
+<p>where </p>
+
+<p><code>proc</code>is the Proc whose status has changed and 
+<code>status</code> is one of the following string values:  </p>
+
+<pre><code>PS.PROC_STATUS_RUNNING
+PS.PROC_STATUS_FINISHED
+</code></pre>
+
+<p>NOTE:  All Proc Instances have a private property named <code>_procState</code> that is reserved for use 
+by ProcScript. </p>
+
+<pre><code>_procState 
+</code></pre>
+
+<p>When defining Proc Locals on your Proc Instance, you may use any name other than <code>_procState</code>.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">ProcScript maintained by <a href="https://github.com/kworam">kworam</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("kworam_procscript");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+
+  </body>
+</html>
