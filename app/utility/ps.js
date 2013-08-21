@@ -125,7 +125,7 @@
 
             } else {
                 // The Proc's 'in-out' and 'out' parameters failed validation, so it has actually failed
-                proc._failureCallback.call(proc, ps.err, currentBlock.name, true);
+                proc._failureCallback.call(proc, ps.err, currentBlock.name);
             }
 
         } else {
@@ -155,7 +155,7 @@
 
         ps._callbackCount += 1;
         if (ps._callbackCount == 1) {
-            proc._failureCallback.call(proc, err, currentBlock.name, true);
+            proc._failureCallback.call(proc, err, currentBlock.name);
 
         } else {
             // More than one callback received
@@ -506,29 +506,29 @@
         return this;
     },
 
-//    Proc.prototype.getParamValue = function (paramName) {
-//        var paramObj = this._getParamObj(),
-//            signatureObj = this._getSignatureObj(),
-//            paramDescriptor = signatureObj[paramName];
+    //    Proc.prototype.getParamValue = function (paramName) {
+    //        var paramObj = this._getParamObj(),
+    //            signatureObj = this._getSignatureObj(),
+    //            paramDescriptor = signatureObj[paramName];
 
-//        if (typeof paramDescriptor === "undefined") {
-//            throw new Error("[PS.Proc.getParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
-//        }
+    //        if (typeof paramDescriptor === "undefined") {
+    //            throw new Error("[PS.Proc.getParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
+    //        }
 
-//        return paramObj[paramName];
-//    };
+    //        return paramObj[paramName];
+    //    };
 
-//    Proc.prototype.setParamValue = function (paramName, val) {
-//        var paramObj = this._getParamObj(),
-//            signatureObj = this._getSignatureObj(),
-//            paramDescriptor = signatureObj[paramName];
+    //    Proc.prototype.setParamValue = function (paramName, val) {
+    //        var paramObj = this._getParamObj(),
+    //            signatureObj = this._getSignatureObj(),
+    //            paramDescriptor = signatureObj[paramName];
 
-//        if (typeof paramDescriptor === "undefined") {
-//            throw new Error("[PS.Proc.setParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
-//        }
+    //        if (typeof paramDescriptor === "undefined") {
+    //            throw new Error("[PS.Proc.setParamValue] parameter name '" + paramName + "' not found in this Proc's signature.");
+    //        }
 
-//        paramObj[paramName] = val;
-//    };
+    //        paramObj[paramName] = val;
+    //    };
 
     Proc.prototype.callStackToString = function () {
         var ps = this._procState;
@@ -651,7 +651,7 @@
 
     PS.PROC_STATUS_RUNNING = "running";
     PS.PROC_STATUS_FINISHED = "finished";
-        
+
     Proc.prototype.addStatusChangedListener = function (fnStatusChangedListener) {
         // add a status changed listener for this Proc instance
         if (typeof fnStatusChangedListener !== "function") {
@@ -1088,10 +1088,16 @@
         }
     };
 
-    Proc.prototype._failureCallback = function (err, blockName, errJustHappened) {
+    Proc.prototype._failureCallback = function (err, blockName) {
         // called by the ProcScript runtime when a Proc block throws an unhandled exception
+        var ps = this._procState;
 
-        if (typeof errJustHappened !== "undefined" && errJustHappened) {
+        if (!(err instanceof Error)) {
+            err = new Error(err.toString());
+        }        
+
+        if (!err.__ps_reported) {
+            err.__ps_reported = true;
             var errorMessage = PS._getErrorMessageForException(err, blockName, this);
 
             // notify procException listeners
@@ -1103,7 +1109,6 @@
         }
 
         // record the block that was the source of the failure
-        var ps = this._procState;
 
         ps.failureSourceBlockIdx = ps.currentBlockIdx;
         ps.err = err;
@@ -1570,7 +1575,7 @@
                     // an unhandled exception occurred in the block function for the current block
 
                     // call this Proc's failure callback passing the unhandled exception object
-                    proc._failureCallback(err, blockName, true)
+                    proc._failureCallback(err, blockName)
                 }
             }
 
