@@ -125,7 +125,7 @@
 
             } else {
                 // The Proc's 'in-out' and 'out' parameters failed validation, so it has actually failed
-                proc._failureCallback.call(proc, ps.err, currentBlock.name);
+                proc._failureCallback.call(proc, proc.getFailure(), currentBlock.name);
             }
 
         } else {
@@ -1022,7 +1022,7 @@
 
                 } else {
 
-                    PS._dispatch(caller._failureCallback, caller, ps.err, this, currentBlock, false);
+                    PS._dispatch(caller._failureCallback, caller, this.getFailure(), this, currentBlock, false);
                 }
 
             } else {
