@@ -1,0 +1,143 @@
+﻿<!DOCTYPE HTML>
+<html>
+<head>
+    <title>ProcScript CORS Demo</title>
+    <script src="http://code.jquery.com/jquery-1.10.2.min.js" type="text/javascript" ></script>
+    <script src="app/utility/asap.js" type="text/javascript"></script>
+    <script src="app/utility/q.js" type="text/javascript"></script>
+    <script src="app/utility/ps.js" type="text/javascript"></script>
+    <script src="app/utility/xhr.js" type="text/javascript"></script>
+    <script src="app/data/WebSQLManager.js" type="text/javascript"></script>
+    <script src="app.js" type="text/javascript"></script>
+
+    <script type="text/javascript">
+
+        var onProcException = function (err, errorMessage) {
+
+            PS._log("[onProcException]");
+            PS._log("err=" + err);
+
+            PS._log("errorMessage:");
+            PS._log(errorMessage);
+        }
+
+        // To get a callback from ProcScript when a Proc failure happens,
+        // register as a 'procException' listener.
+        PS.addListener('procException', onProcException);
+        
+    </script>
+<!-- 
+    Thanks for Craig Buckler of OptimalWorks.net for the following CSS-based spinner I used in this example.
+    http://blogs.sitepointstatic.com/examples/tech/css3-ajax-icon/index.html 
+-->
+<style>
+body
+{
+	font-family: sans-serif;
+	font-size: 100%;
+	margin: 20px;
+	color: #eee;
+	background-color: #222;
+}
+
+h1
+{
+	font-size: 1.5em;
+	font-weight: normal;
+	margin: 0 0 0.1em 0;
+	color: #ffa;
+}
+
+h2
+{
+	font-size: 1.3em;
+	font-weight: normal;
+	margin: 1.5em 0 0 0;
+	color: #ffa;
+}
+
+#spinner
+{
+	display: none;
+	/*position: absolute;*/
+	width: 30px;
+	height: 30px;
+	left: 50%;
+	top: 15%;
+	margin: 0 0 0 -15px;
+	border: 8px solid #fff;
+	border-right-color: transparent;
+	border-radius: 50%;
+	box-shadow: 0 0 25px 2px #eee;
+	-webkit-animation: spin 1s linear infinite;
+	-moz-animation: spin 1s linear infinite;
+	-ms-animation: spin 1s linear infinite;
+	-o-animation: spin 1s linear infinite;
+	animation: spin 1s linear infinite;
+}
+
+
+@-webkit-keyframes spin
+{
+	from { -webkit-transform: rotate(0deg); opacity: 0.4; }
+	50%  { -webkit-transform: rotate(180deg); opacity: 1; }
+	to   { -webkit-transform: rotate(360deg); opacity: 0.4; }
+}
+
+@-moz-keyframes spin
+{
+	from { -moz-transform: rotate(0deg); opacity: 0.4; }
+	50%  { -moz-transform: rotate(180deg); opacity: 1; }
+	to   { -moz-transform: rotate(360deg); opacity: 0.4; }
+}
+
+@-ms-keyframes spin
+{
+	from { -ms-transform: rotate(0deg); opacity: 0.4; }
+	50%  { -ms-transform: rotate(180deg); opacity: 1; }
+	to   { -ms-transform: rotate(360deg); opacity: 0.4; }
+}
+
+@-o-keyframes spin
+{
+	from { -o-transform: rotate(0deg); opacity: 0.4; }
+	50%  { -o-transform: rotate(180deg); opacity: 1; }
+	to   { -o-transform: rotate(360deg); opacity: 0.4; }
+}
+
+@keyframes spin
+{
+	from { transform: rotate(0deg); opacity: 0.2; }
+	50%  { transform: rotate(180deg); opacity: 1; }
+	to   { transform: rotate(360deg); opacity: 0.2; }
+}
+</style>
+</head>
+<body>
+    <h1>ProcScript CORS Demo</h1>
+    <label>Use ProcScript to send a Cross-Origin Resource Sharing (CORS) request to a URL and see the results.</label>
+    <form>
+        <div>
+            <input id="txtURL" placeholder="Enter a URL to test for CORS support here" style="width:100%;" />
+        </div>
+        <div>
+            <label for="selectMethod" >HTTP Method</label>
+            <select id="selectMethod">
+              <option value="HEAD">HEAD</option>
+              <option value="GET" selected>GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="DELETE">DELETE</option>
+              <option value="OPTIONS">OPTIONS</option>
+            </select>
+            <button onclick="new App.corsTestProc({}).run(); return false;">Send CORS Request</button>
+        </div>
+        <div id="spinner"></div>
+        <div>    
+            <h2>Results</h2>
+            <label>If WebSQL is available, ProcScript stores your requests and results in a WebSQL database.</label>
+            <textarea id="txtTestResults" rows="10" cols="1" style="width:100%;"></textarea>
+        </div>
+    </form>
+</body>
+</html>
