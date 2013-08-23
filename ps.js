@@ -125,7 +125,7 @@
 
             } else {
                 // The Proc's 'in-out' and 'out' parameters failed validation, so it has actually failed
-                proc._failureCallback.call(proc, proc.getFailure(), currentBlock.name);
+                proc._failureCallback.call(proc, PS._makeError(proc.getFailure()), currentBlock.name);
             }
 
         } else {
@@ -139,6 +139,18 @@
                 throw new Error(msg);
             }
         }
+    }
+
+    PS._makeError = function (err) {
+        if (err instanceof Error) {
+            return err;
+        }
+
+        if (Util.IsNullOrUndefined(err)) {
+            err = "<No error message>";
+        }
+
+        return new Error(err);
     }
 
     PS.procFailed = function (proc, err) {
@@ -155,7 +167,7 @@
 
         ps._callbackCount += 1;
         if (ps._callbackCount == 1) {
-            proc._failureCallback.call(proc, err, currentBlock.name);
+            proc._failureCallback.call(proc, PS._makeError(err), currentBlock.name);
 
         } else {
             // More than one callback received
@@ -716,12 +728,8 @@
             thread = ps.thread;
 
         if (ps.err) {
-            if (ps.err.message) {
-                return ps.err.message;
-
-            } else {
-                return ps.err.toString();
-            }
+            // ps.err is always an instance of Error
+            return ps.err;
 
         } else if (thread && thread.getAbortReason()) {
             return thread.getAbortReason();
@@ -950,12 +958,7 @@
 
         for (var rvParamName in signatureObj) {
             var paramDescriptor = signatureObj[rvParamName],
-                paramDir = 'in';
-
-            if (paramDescriptor) {
-                paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
-                paramDir = paramDir.toLowerCase();
-            }
+                paramDir = this._getParamDir(rvParamName, paramDescriptor);
 
             if (paramDir != 'in') {
                 numOutParams++;
@@ -1022,7 +1025,7 @@
 
                 } else {
 
-                    PS._dispatch(caller._failureCallback, caller, this.getFailure(), this, currentBlock, false);
+                    PS._dispatch(caller._failureCallback, caller, PS._makeError(this.getFailure()), this, currentBlock, false);
                 }
 
             } else {
@@ -1093,8 +1096,8 @@
         var ps = this._procState;
 
         if (!(err instanceof Error)) {
-            err = new Error(err.toString());
-        }        
+            throw new Error("Proc.prototype._failureCallback received an invalid error!");
+        }
 
         if (!err.__ps_reported) {
             err.__ps_reported = true;
@@ -1235,6 +1238,23 @@
         ps.currentBlockIdx = 0;
     }
 
+    Proc.prototype._getParamDir = function (paramName, paramDescriptor) {
+        if (!paramDescriptor) {
+            return "in";
+        }
+
+        var paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
+        paramDir = paramDir.toLowerCase();
+
+        if (paramDir !== 'in' && paramDir !== 'out' && paramDir !== 'in-out') {
+            var errMsg = "[PS.Proc._getParamDir]  The signature of Proc '" + this._getProcDefName() +
+                "' has an invalid direction setting of '" + paramDir + "' for parameter '" + paramName + "'.\n";
+
+            throw new Error(errMsg);
+        }
+
+        return paramDir;
+    }
 
     Proc.prototype._validateParamObj = function (entering) {
         // Validate the paramObj against the signature
@@ -1272,25 +1292,24 @@
         }
 
         // look for missing parameter values (descriptors in signature object that have no values in paramObj)
-        for (var descriptorName in signatureObj) {
-            var paramDescriptor = signatureObj[descriptorName],
-                paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
+        for (var paramName in signatureObj) {
+            var paramDescriptor = signatureObj[paramName],
+                paramDir = this._getParamDir(paramName, paramDescriptor);
 
-            paramDir = paramDir.toLowerCase();
             if (entering) {
                 // we are entering this Proc, so look for missing 'in' and 'in-out' parameters
-                if (paramDir !== 'out' && typeof paramObj[descriptorName] === "undefined") {
+                if (paramDir !== 'out' && typeof paramObj[paramName] === "undefined") {
 
                     throw new Error("[PS.Proc._validateParamObj]  caller '" + callerName + "' " +
-                            "did not pass Proc '" + procName + "' a value for parameter '" + descriptorName + "'");
+                            "did not pass Proc '" + procName + "' a value for parameter '" + paramName + "'");
 
                 }
             } else {
                 // we are exiting this Proc, so look for missing 'in-out' and 'out' parameters
-                if (paramDir !== 'in' && typeof paramObj[descriptorName] === "undefined") {
+                if (paramDir !== 'in' && typeof paramObj[paramName] === "undefined") {
 
                     throw new Error("[PS.Proc._validateParamObj] Proc '" + procName + "' " +
-                        "is not returning a value for parameter '" + descriptorName + "'");
+                        "is not returning a value for parameter '" + paramName + "'");
                 }
             }
 
@@ -1331,17 +1350,8 @@
 
 
     Proc.prototype._typeCheckParameter = function (paramDescriptor, paramName, paramValue, procName, callerName, entering) {
-        var paramDir = typeof paramDescriptor[1] === "undefined" ? 'in' : paramDescriptor[1];
-
-        paramDir = paramDir.toLowerCase();
-        if (paramDir !== 'in' && paramDir !== 'out' && paramDir !== 'in-out') {
-            var errMsg = "[PS.Proc._typeCheckParameter]  The signature of Proc '" + procName +
-                "' has an invalid direction setting of '" + paramDir + "' for parameter '" + paramName + "'.\n";
-
-            throw new Error(errMsg);
-        }
-
-        var paramType = paramDescriptor[0];
+        var paramDir = this._getParamDir(paramName, paramDescriptor),
+            paramType = paramDescriptor[0];
 
         // NOTE: here are the possible return values of typeof
         // Undefined	"undefined"
@@ -1563,7 +1573,7 @@
 
                 try {
                     if (proc.aborted() && !block._catch && !block._finally) {
-                        throw new Error(proc.getFailure());
+                        throw PS._makeError(proc.getFailure());
                     }
 
                     proc._processBlockReturnValue(
@@ -1575,7 +1585,7 @@
                     // an unhandled exception occurred in the block function for the current block
 
                     // call this Proc's failure callback passing the unhandled exception object
-                    proc._failureCallback(err, blockName)
+                    proc._failureCallback(PS._makeError(err), blockName)
                 }
             }
 
@@ -1875,7 +1885,7 @@
             this._copyAndValidateOutParams();
 
         } catch (err) {
-            ps.err = err.message || err;
+            ps.err = PS._makeError(err);
             ps._invalidOutParams = true;
         }
 
