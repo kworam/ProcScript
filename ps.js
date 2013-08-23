@@ -146,7 +146,7 @@
             return err;
         }
 
-        if (Util.IsNullOrUndefined(err)) {
+        if (err === null || typeof err === "undefined") {
             err = "<No error message>";
         }
 
