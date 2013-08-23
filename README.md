@@ -46,14 +46,31 @@ ProcScript Demos
 
 Before we dive in, let me mention the ProcScript demos.  These simple demos are brief and heavily commented and provide a great way to quickly learn ProcScript.
 
-corsDemo
+CORS Demo
 ------------------------------
-This demo sends Cross Origin Resource Sharing (CORS) requests to websites and shows how to use ProcScript 
+The repository is here:
+
+https://github.com/kworam/ProcScriptCorsDemo
+
+and you can try running it here:
+
+http://kworam.github.io/ProcScriptCorsDemo/
+
+The CORS demo sends Cross Origin Resource Sharing (CORS) requests to websites and shows how to use ProcScript 
 to make XmlHttpRequests and write to a WebSQL database. 
 
-procRunnerDemo
+
+Proc Runner Demo
 ------------------------------
-This demo shows how to run multiple Procs in Sequence, Parallel, Fallback or Race operations with Proc Runners.  The 
+The repository is here:
+
+https://github.com/kworam/ProcScriptRunnerDemo
+
+and you can try running it here:
+
+http://kworam.github.io/ProcScriptRunnerDemo/
+
+The Proc Runner demo shows how to run multiple Procs in Sequence, Parallel, Fallback or Race operations with Proc Runners.  The 
 attractive, interactive GUI gives you full control over duration, timeout and abort and allows arbitrary nesting of Proc Runners.
 
 
@@ -668,7 +685,7 @@ An Adapter Proc turns a blocking function into a Proc.  Writing an Adapter Proc 
 just set the `adapter` property in the proc config and make the blocking function call 
 `PS.procSucceeded` or `PS.procFailed` as appropriate.
 
-Here is an example from the ProcScript demo app:
+Here is an example from the ProcScript CORS demo:
 	
     // XHR.makeCorsRequestProc is an Adapter Proc for XmlHttpRequest
 
@@ -726,7 +743,7 @@ as described in the *_catch and _finally block functions* section of this readme
 Using Adapter Procs
 ---------------------------------------------------
 
-Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is an example from the ProcScript demo app:
+Once you have defined an Adapter Proc, you can call it as you would any other Proc. Here is an example from the ProcScript CORS demo:
 
 	return new XHR.makeCorsRequestProc({
 		method: this.httpMethodValue,
@@ -799,7 +816,7 @@ a developer uses the framework incorrectly, ProcScript makes every effort to pro
 ProcScript maintains a Proc call stack for each Proc call chain.  If an unhandled exception occurs in a block function, 
 ProcScript writes a detailed error summary to the console including the Proc call stack as well as the JavaScript call stack.  
 
-Here is an example from the ProcScript demonstration app:
+Here is an example from the ProcScript CORS demo:
 
 	[onProcException] localhost/:14
 	err=Error: [App.initDbProc]  simulated exception in 'createTablesIfNecessary' block function localhost/:15
