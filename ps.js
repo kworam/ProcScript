@@ -2149,7 +2149,7 @@ PS.SequenceProcRunner = PS.defineProc({
 	    me.currProcIdx = 0;
 	    me.runnerDone = false;
 
-	    // Whenever the status of a Proc finishes, ProcScript calls fnStatusChanged
+	    // Whenever the status of a Proc in the sequence changes, ProcScript calls fnStatusChanged
 	    function fnStatusChanged(seqProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            return;
@@ -2158,7 +2158,7 @@ PS.SequenceProcRunner = PS.defineProc({
 	        me.currProcIdx += 1;
 	        if (seqProc.succeeded()) {
 	            if (me.currProcIdx === arrProcs.length) {
-	                // The last Proc succeeded, so the sequence succeeds with its parameter object
+	                // The last Proc succeeded, so the sequence succeeds
 	                me.runnerDone = true;
 	                PS.procSucceeded(me);
 
@@ -2216,6 +2216,7 @@ PS.FallbackProcRunner = PS.defineProc({
 	    me.fallbackIndex = 0;
 	    me.runnerDone = false;
 
+	    // Whenever the status of a Proc in the fallback changes, ProcScript calls fnStatusChanged
 	    function fnStatusChanged(fallbackProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            return;
@@ -2223,7 +2224,7 @@ PS.FallbackProcRunner = PS.defineProc({
 
 	        me.currProcIdx += 1;
 	        if (fallbackProc.succeeded()) {
-	            // The current Proc succeeded, so the fallback succeeds with its parameter object
+	            // The current Proc succeeded, so the fallback succeeds
 	            me.fallbackIndex = me.currProcIdx - 1;
 	            me.runnerDone = true;
 	            PS.procSucceeded(me);
@@ -2284,7 +2285,8 @@ PS.RaceProcRunner = PS.defineProc({
 	    me.winnerIndex = null;
 	    me.runnerDone = false;
 
-	    function fnStatusChanged (racerProc, status) {
+	    // Whenever the status of a Proc in the race changes, ProcScript calls fnStatusChanged
+	    function fnStatusChanged(racerProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            // the racerProc is not finished or the race is already over 
 	            return;
@@ -2298,10 +2300,12 @@ PS.RaceProcRunner = PS.defineProc({
 
 	            // Abort the losers
 	            for (var i = 0; i < arrProcs.length; i++) {
-	                arrProcs[i].abort();
+	                if (i !== me.winnerIndex) {
+	                    arrProcs[i].abort();
+	                }
 	            }
 
-	            // The race succeeds with the winner's parameter object
+	            // The race succeeds
 	            PS.procSucceeded(me);
 
 	        } else if (me.numRemaining === 0) {
@@ -2349,6 +2353,7 @@ PS.ParallelProcRunner = PS.defineProc({
 	    me.numRemaining = arrProcs.length;
 	    me.runnerDone = false;
 
+	    // Whenever the status of a Proc in the parallel changes, ProcScript calls fnStatusChanged
 	    function fnStatusChanged(parallelProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            return;
@@ -2369,6 +2374,7 @@ PS.ParallelProcRunner = PS.defineProc({
 	            PS.procFailed(me, parallelProc.getFailure());
 
 	        } else if (me.numRemaining === 0) {
+	            // ParallelProcRunner succeeds
 	            me.runnerDone = true;
 	            PS.procSucceeded(me);
 	        }
@@ -2391,7 +2397,7 @@ PS.ParallelProcRunner = PS.defineProc({
 
 function fnAbortProcRunner() {
     if (this.runnerDone) {
-        // Proc is done so it cannot be aborted
+        // The Proc Runner is done so it cannot be aborted
         return;
     }
 
