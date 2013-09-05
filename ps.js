@@ -1881,16 +1881,8 @@
             return ps._succeeded;
         }
 
-        try {
-            this._copyAndValidateOutParams();
-
-        } catch (err) {
-            ps.err = PS._makeError(err);
-            ps._invalidOutParams = true;
-        }
-
-        if (this.aborted() || ps._invalidOutParams) {
-            // the Proc was aborted or an 'in-out' or 'out' parameter failed validation
+        if (this.aborted()) {
+            // the Proc was aborted
             success = false;
 
         } else if (ps.failureSourceBlockIdx >= 0) {
@@ -1910,6 +1902,17 @@
             // the Proc either ran without any unhandled exceptions in the normal block functions,
             // or an exception occurred in a normal block function but was successfully handled and absorbed.
             success = true;
+        }
+
+        if (success) {
+            // if there are no problems up to this point, then verify that the 'in-out' and 'out' parameters pass validation
+            try {
+                this._copyAndValidateOutParams();
+
+            } catch (err) {
+                ps.err = PS._makeError(err);
+                success = false;
+            }
         }
 
         ps._succeeded = success;
@@ -2149,16 +2152,16 @@ PS.SequenceProcRunner = PS.defineProc({
 	    me.currProcIdx = 0;
 	    me.runnerDone = false;
 
-	    // Whenever the status of a Proc in the sequence changes, ProcScript calls fnStatusChanged
-	    function fnStatusChanged(seqProc, status) {
+	    // Whenever the status of a child Proc in the sequence changes, ProcScript calls fnStatusChanged
+	    function fnStatusChanged(childProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            return;
 	        }
 
 	        me.currProcIdx += 1;
-	        if (seqProc.succeeded()) {
+	        if (childProc.succeeded()) {
 	            if (me.currProcIdx === arrProcs.length) {
-	                // The last Proc succeeded, so the sequence succeeds
+	                // The last child Proc succeeded, so the sequence succeeds
 	                me.runnerDone = true;
 	                PS.procSucceeded(me);
 
@@ -2173,13 +2176,13 @@ PS.SequenceProcRunner = PS.defineProc({
 	            }
 
 	        } else {
-	            // The current Proc failed, so the sequence fails with its failure reason
+	            // The current child Proc failed, so the sequence fails with its failure reason
 	            me.runnerDone = true;
-	            PS.procFailed(me, seqProc.getFailure());
+	            PS.procFailed(me, childProc.getFailure());
 	        }
 	    }
 
-	    // Run the first Proc in the sequence
+	    // Run the first child Proc in the sequence
 	    nextProc = arrProcs[me.currProcIdx],
 		runParams = {
 		    timeout: nextProc.getTimeout() || me.getTimeout(),
@@ -2216,15 +2219,15 @@ PS.FallbackProcRunner = PS.defineProc({
 	    me.fallbackIndex = 0;
 	    me.runnerDone = false;
 
-	    // Whenever the status of a Proc in the fallback changes, ProcScript calls fnStatusChanged
-	    function fnStatusChanged(fallbackProc, status) {
+	    // Whenever the status of a child Proc in the fallback changes, ProcScript calls fnStatusChanged
+	    function fnStatusChanged(childProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            return;
 	        }
 
 	        me.currProcIdx += 1;
-	        if (fallbackProc.succeeded()) {
-	            // The current Proc succeeded, so the fallback succeeds
+	        if (childProc.succeeded()) {
+	            // The current child Proc succeeded, so the fallback succeeds
 	            me.fallbackIndex = me.currProcIdx - 1;
 	            me.runnerDone = true;
 	            PS.procSucceeded(me);
@@ -2232,9 +2235,9 @@ PS.FallbackProcRunner = PS.defineProc({
 	        } else {
 	            // The current Proc failed
 	            if (me.currProcIdx === arrProcs.length) {
-	                // This is the last Proc, so the fallback fails with the its failure reason
+	                // This is the last child Proc, so the fallback fails with the its failure reason
 	                me.runnerDone = true;
-	                PS.procFailed(me, fallbackProc.getFailure());
+	                PS.procFailed(me, childProc.getFailure());
 
 	            } else {
 	                // Run the next Proc in the fallback
@@ -2248,7 +2251,7 @@ PS.FallbackProcRunner = PS.defineProc({
 	        }
 	    }
 
-	    // Run the first Proc in the fallback
+	    // Run the first child Proc in the fallback
 	    nextProc = arrProcs[me.currProcIdx],
 		runParams = {
 		    timeout: nextProc.getTimeout() || me.getTimeout(),
@@ -2285,18 +2288,18 @@ PS.RaceProcRunner = PS.defineProc({
 	    me.winnerIndex = null;
 	    me.runnerDone = false;
 
-	    // Whenever the status of a Proc in the race changes, ProcScript calls fnStatusChanged
-	    function fnStatusChanged(racerProc, status) {
+	    // Whenever the status of a child Proc in the race changes, ProcScript calls fnStatusChanged
+	    function fnStatusChanged(childProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
-	            // the racerProc is not finished or the race is already over 
+	            // the child Proc is not finished or the race is already over, so do nothing
 	            return;
 	        }
 
 	        me.numRemaining -= 1;
 
-	        if (racerProc.succeeded()) {
+	        if (childProc.succeeded()) {
 	            me.runnerDone = true;
-	            me.winnerIndex = racerProc.racerIdx;
+	            me.winnerIndex = childProc.racerIdx;
 
 	            // Abort the losers
 	            for (var i = 0; i < arrProcs.length; i++) {
@@ -2309,13 +2312,13 @@ PS.RaceProcRunner = PS.defineProc({
 	            PS.procSucceeded(me);
 
 	        } else if (me.numRemaining === 0) {
-	            // All Procs failed, so the race fails with the last failure reason
+	            // All child Procs failed, so the race fails with the last failure reason
 	            me.runnerDone = true;
-	            PS.procFailed(me, racerProc.getFailure());
+	            PS.procFailed(me, childProc.getFailure());
 	        }
 	    }
 
-	    // Run all Procs in the race
+	    // Run all child Procs in the race
 	    for (var i = 0; i < arrProcs.length; i++) {
 	        nextProc = arrProcs[i];
 	        nextProc.racerIdx = i;
@@ -2353,34 +2356,34 @@ PS.ParallelProcRunner = PS.defineProc({
 	    me.numRemaining = arrProcs.length;
 	    me.runnerDone = false;
 
-	    // Whenever the status of a Proc in the parallel changes, ProcScript calls fnStatusChanged
-	    function fnStatusChanged(parallelProc, status) {
+	    // Whenever the status of a child Proc in the parallel changes, ProcScript calls fnStatusChanged
+	    function fnStatusChanged(childProc, status) {
 	        if (status !== "finished" || me.runnerDone) {
 	            return;
 	        }
 
 	        me.numRemaining -= 1;
 
-	        if (parallelProc.failed()) {
-	            // a Proc failed
+	        if (childProc.failed()) {
+	            // a child Proc failed
 	            me.runnerDone = true;
 
-	            // abort any other Procs that are still running
+	            // abort any other child Procs that are still running
 	            for (var i = 0; i < arrProcs.length; i++) {
 	                arrProcs[i].abort();
 	            }
 
-	            // ParallelProcRunner fails with this Proc's failure reason
-	            PS.procFailed(me, parallelProc.getFailure());
+	            // ParallelProcRunner fails with this child Proc's failure reason
+	            PS.procFailed(me, childProc.getFailure());
 
 	        } else if (me.numRemaining === 0) {
-	            // ParallelProcRunner succeeds
+	            // the ParallelProcRunner succeeds
 	            me.runnerDone = true;
 	            PS.procSucceeded(me);
 	        }
 	    }
 
-	    // run all the Procs in the array
+	    // run all the child Procs in the array
 	    for (var i = 0; i < arrProcs.length; i++) {
 	        nextProc = arrProcs[i],
 			runParams = {
@@ -2397,7 +2400,7 @@ PS.ParallelProcRunner = PS.defineProc({
 
 function fnAbortProcRunner() {
     if (this.runnerDone) {
-        // The Proc Runner is done so it cannot be aborted
+        // The Proc Runner is done, so it cannot be aborted
         return;
     }
 
